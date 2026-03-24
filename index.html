@@ -134,7 +134,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px;
 .ccard.resolved { opacity: 0.4; }
 .ccard-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; gap: 8px; }
 .cauthor { font-size: 13px; font-weight: 700; color: #ddd; }
-.ctsbadge { background: #cc0033; color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 8px; font-weight: 700; cursor: pointer; flex-shrink: 0; white-space: nowrap; }
+.ctsbadge { background: #cc0033; color: #fff; font-size: 13px; padding: 2px 6px; border-radius: 8px; font-weight: 700; cursor: pointer; flex-shrink: 0; white-space: nowrap; }
 .ctext { font-size: 14px; color: #aaa; line-height: 1.5; word-break: break-word; }
 .ctext.editing { display: none; }
 .cedit-input { width: 100%; background: #111; border: 1px solid #cc0033; color: #ddd; padding: 5px 8px; border-radius: 4px; font-size: 12px; font-family: inherit; resize: vertical; min-height: 40px; display: none; margin-bottom: 5px; }
@@ -650,7 +650,7 @@ function renderCard(c) {
     +'<div class="cdate">'+new Date(c.created_at).toLocaleDateString()+'</div>'
     +'<div class="cactions">'
     +'<button class="cact-btn'+(liked?' liked':'')+(likes>0?' has-likes':'')+'" onclick="toggleLike(\''+c.id+'\')">'
-    +'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
+    +'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
     +(likes>0?'<b style="font-size:13px;margin-left:2px;">'+likes+'</b>':'')
     +'<button class="cact-btn" onclick="toggleReplyBox(\''+c.id+'\')">Reply</button>'
     +'<button class="cact-btn" id="cedit-btn-'+c.id+'" onclick="editComment(\''+c.id+'\')">Edit</button>'
