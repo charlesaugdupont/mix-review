@@ -305,6 +305,17 @@ var WAVE_ANIM_DURATION = 600; // ms
 
 function setPlayIcon(p) { document.getElementById('play-icon').innerHTML = p ? ICON_PAUSE : ICON_PLAY; }
 
+// ── GLOBAL SPACEBAR HANDLER ───────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if (e.code !== 'Space') return;
+  // Don't intercept spacebar when typing in any text field
+  var tag = document.activeElement ? document.activeElement.tagName : '';
+  var isEditable = document.activeElement && document.activeElement.isContentEditable;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || isEditable) return;
+  e.preventDefault(); // stop page scroll
+  togglePlay();
+});
+
 // ── WAVEFORM HOVER ────────────────────────────────────────────────────────────
 var waveWrap = document.getElementById('waveform-wrap');
 var hoverLine = document.getElementById('hover-line');
