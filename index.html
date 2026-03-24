@@ -239,7 +239,6 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px;
     <div id="cinput">
       <div id="stamprow">
         <div id="stampbadge">@0:00</div>
-        <span id="stamphint">Click waveform to set timestamp</span>
       </div>
       <input id="cauthor" type="text" placeholder="Your name" />
       <textarea id="ctext" placeholder="Leave a comment at this timestamp..."></textarea>
@@ -605,7 +604,7 @@ function seekTo(e) {
 // ── COMMENTS ──────────────────────────────────────────────────────────────────
 function renderComments() {
   var el = document.getElementById('comments-area');
-  document.getElementById('rp-hdr').textContent = 'New Comment' + (comms.length ? ' (' + comms.length + ')' : '');
+  document.getElementById('rp-hdr').textContent = 'New Comment';
   if (!comms.length) { el.innerHTML='<div style="color:#444;font-size:13px;text-align:center;padding-top:30px;">No comments yet</div>'; return; }
   var active = comms.filter(function(c){return !c.resolved;});
   var resolved = comms.filter(function(c){return c.resolved;});
