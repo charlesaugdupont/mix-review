@@ -140,7 +140,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px;
 .cedit-input { width: 100%; background: #111; border: 1px solid #cc0033; color: #ddd; padding: 5px 8px; border-radius: 4px; font-size: 12px; font-family: inherit; resize: vertical; min-height: 40px; display: none; margin-bottom: 5px; }
 .cdate { font-size: 11px; color: #3a3a3a; margin-top: 4px; }
 .cactions { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-.cact-btn { background: none; border: none; color: #484848; font-size: 11px; cursor: pointer; padding: 2px 4px; border-radius: 3px; display: flex; align-items: center; gap: 3px; transition: color .15s; }
+.cact-btn { background: none; border: none; color: #b6b5b5; font-size: 11px; cursor: pointer; padding: 2px 4px; border-radius: 3px; display: flex; align-items: center; gap: 3px; transition: color .15s; }
 .cact-btn:hover { color: #999; }
 .cact-btn svg { color: #444; transition: color .15s; }
 .cact-btn.has-likes svg { color: #cc0033; }
@@ -464,7 +464,7 @@ async function decodeAndCacheWave(vid, url) {
     var audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
     audioCtx.close();
 
-    var BARS = 360;
+    var BARS = 300;
     var numChannels = audioBuffer.numberOfChannels;
     var length = audioBuffer.length;
 
@@ -631,9 +631,9 @@ function renderCard(c) {
         +'<textarea class="reply-edit-input" id="redit-'+c.id+'-'+ri+'">'+esc(r.text)+'</textarea>'
         +'<div class="reply-text" id="rtext-'+c.id+'-'+ri+'">'+esc(r.text)+'</div>'
         +'<div class="reply-actions">'
-        +'<button class="cact-btn'+(rLiked?' liked':'')+(rLikes>0?' has-likes':'')+'" onclick="likeReply(...)'
-        +'<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
-        +(rLikes>0?rLikes:'')+'</button>'
+        +'<button class="cact-btn'+(rLiked?' liked':'')+(rLikes>0?' has-likes':'')+'" onclick="likeReply(\''+c.id+'\','+ri+')">'
+        +'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
+        +(rLikes>0?'<b style="font-size:13px;margin-left:2px;">'+rLikes+'</b>':'')+'</button>'
         +'<button class="cact-btn" onclick="editReply(\''+c.id+'\','+ri+')">Edit</button>'
         +'<button class="cact-btn" style="display:none" id="rsave-'+c.id+'-'+ri+'" onclick="saveReply(\''+c.id+'\','+ri+')">💾 Save</button>'
         +'</div></div>';
