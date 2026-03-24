@@ -198,7 +198,6 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px;
         <button class="btn ghost" style="padding:3px 8px;font-size:10px;" onclick="openModal('version')">+ Version</button>
         <button class="btn" style="padding:3px 8px;font-size:10px;" onclick="openModal('song')">+ Song</button>
       </div>
-      <span id="scount" style="font-size:11px;color:#444;">0</span>
     </div>
     <div id="songlist"><div style="padding:24px 14px;color:#444;font-size:12px;text-align:center;">No songs yet.</div></div>
   </div>
@@ -368,7 +367,6 @@ async function loadComms(vid) {
 }
 
 function renderSongs() {
-  document.getElementById('scount').textContent = songs.length;
   var el = document.getElementById('songlist');
   if (!songs.length) { el.innerHTML = '<div style="padding:24px 14px;color:#444;font-size:12px;text-align:center;">No songs yet.</div>'; return; }
   el.innerHTML = songs.map(function(s, i) {
@@ -455,7 +453,7 @@ async function loadVersion(vid) {
 // ── WAVEFORM ──────────────────────────────────────────────────────────────────
 function setWaveLoading(on) {
   var el = document.getElementById('wave-loading');
-  el.textContent = on ? 'Analysing audio…' : '';
+  el.textContent = on ? 'Analysing waveform...' : '';
   el.style.display = on ? 'flex' : 'none';
 }
 
