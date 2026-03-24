@@ -142,6 +142,9 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px;
 .cactions { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 .cact-btn { background: none; border: none; color: #484848; font-size: 11px; cursor: pointer; padding: 2px 4px; border-radius: 3px; display: flex; align-items: center; gap: 3px; transition: color .15s; }
 .cact-btn:hover { color: #999; }
+.cact-btn svg { color: #cc0033; transition: color .15s; }
+.cact-btn:hover svg { color: #e8003d; transform: scale(1.15); }
+.cact-btn.liked svg { color: #e8003d; filter: drop-shadow(0 0 3px #cc003388); }
 .cact-btn.liked { color: #cc0033; }
 .cact-btn.resolved-btn { color: #3a3; }
 
@@ -647,7 +650,7 @@ function renderCard(c) {
     +'<div class="cactions">'
     +'<button class="cact-btn'+(liked?' liked':'')+'" onclick="toggleLike(\''+c.id+'\')">'
     +'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
-    +(likes>0?likes:'')+'</button>'
+    +(likes>0?'<b style="font-size:13px;margin-left:2px;">'+likes+'</b>':'')
     +'<button class="cact-btn" onclick="toggleReplyBox(\''+c.id+'\')">Reply</button>'
     +'<button class="cact-btn" id="cedit-btn-'+c.id+'" onclick="editComment(\''+c.id+'\')">Edit</button>'
     +'<button class="cact-btn" style="display:none" id="csave-btn-'+c.id+'" onclick="saveComment(\''+c.id+'\')">💾 Save</button>'
