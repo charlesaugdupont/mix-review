@@ -43,9 +43,18 @@ body { font-family: 'Segoe UI', sans-serif; background: #0e0e0e; color: #e0e0e0;
 
 /* CENTER */
 #center { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-#player { background: #141414; border-bottom: 1px solid #1e1e1e; padding: 16px 20px; flex-shrink: 0; }
 #player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 #ptitle { font-size: 16px; font-weight: 700; }
+
+#player {
+  background: #141414;
+  border-bottom: 1px solid #1e1e1e;
+  padding: 16px 20px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+#player > * { position: relative; z-index: 1; }
 
 /* VERSION PILLS */
 #version-pills { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -172,26 +181,18 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px;
 </head>
 <body>
 
-<div id="banner">
-  <b>SETUP:</b>
-  <input id="sb-url" type="text" placeholder="https://YOUR-PROJECT-ID.supabase.co" />
-  <input id="sb-key" type="text" placeholder="Supabase Publishable Key" />
-  <button onclick="connect()">Connect</button>
-  <span id="conn">Not connected</span>
-</div>
-
 <div id="topbar">
   <h1>Mix<span>Review</span></h1>
-  <div class="hbtns">
-    <button class="btn ghost" onclick="openModal('version')">+ Add Version</button>
-    <button class="btn" onclick="openModal('song')">+ New Song</button>
-  </div>
 </div>
 
 <div id="layout">
   <div id="sidebar">
     <div id="sidebar-hdr">
       <span>Songs</span>
+      <div style="display:flex;gap:5px;align-items:center;">
+        <button class="btn ghost" style="padding:3px 8px;font-size:10px;" onclick="openModal('version')">+ Version</button>
+        <button class="btn" style="padding:3px 8px;font-size:10px;" onclick="openModal('song')">+ Song</button>
+      </div>
       <span id="scount" style="font-size:11px;color:#444;">0</span>
     </div>
     <div id="songlist"><div style="padding:24px 14px;color:#444;font-size:12px;text-align:center;">No songs yet.</div></div>
@@ -323,20 +324,17 @@ waveWrap.addEventListener('mouseleave', function() {
 });
 waveWrap.addEventListener('click', function(e) { seekTo(e); });
 
+const SUPABASE_URL = "https://nxmodpianwotdvpixjqp.supabase.co";
+const SUPABASE_KEY = "sb_publishable_iBK75q4oIOK25ph5VWJRYg_lxz2QwEM";
+
 // ── CONNECT ───────────────────────────────────────────────────────────────────
-function connect() {
-  var url = document.getElementById('sb-url').value.trim();
-  var key = document.getElementById('sb-key').value.trim();
+function connect(url, key) {
   if (!url || !key) { toast('Enter URL and key'); return; }
   sb = window.supabase.createClient(url, key);
-  localStorage.setItem('sb_url', url); localStorage.setItem('sb_key', key);
-  document.getElementById('conn').textContent = 'Connected';
-  document.getElementById('conn').style.color = '#4d4';
   loadSongs();
 }
 window.onload = function() {
-  var u = localStorage.getItem('sb_url'), k = localStorage.getItem('sb_key');
-  if (u && k) { document.getElementById('sb-url').value = u; document.getElementById('sb-key').value = k; connect(); }
+  connect(SUPABASE_URL, SUPABASE_KEY);
 };
 
 // ── SONGS ─────────────────────────────────────────────────────────────────────
@@ -603,7 +601,7 @@ function seekTo(e) {
 function renderComments() {
   var el = document.getElementById('comments-area');
   document.getElementById('rp-hdr').textContent = 'New Comment' + (comms.length ? ' (' + comms.length + ')' : '');
-  if (!comms.length) { el.innerHTML='<div style="color:#444;font-size:13px;text-align:center;padding-top:30px;">No comments yet — click the waveform and post one!</div>'; return; }
+  if (!comms.length) { el.innerHTML='<div style="color:#444;font-size:13px;text-align:center;padding-top:30px;">No comments yet</div>'; return; }
   var active = comms.filter(function(c){return !c.resolved;});
   var resolved = comms.filter(function(c){return c.resolved;});
   var html = active.map(function(c){ return renderCard(c); }).join('');
@@ -650,8 +648,8 @@ function renderCard(c) {
     +'<button class="cact-btn'+(liked?' liked':'')+'" onclick="toggleLike(\''+c.id+'\')">'
     +'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
     +(likes>0?likes:'')+'</button>'
-    +'<button class="cact-btn" onclick="toggleReplyBox(\''+c.id+'\')">💬 Reply</button>'
-    +'<button class="cact-btn" id="cedit-btn-'+c.id+'" onclick="editComment(\''+c.id+'\')">✏️ Edit</button>'
+    +'<button class="cact-btn" onclick="toggleReplyBox(\''+c.id+'\')">Reply</button>'
+    +'<button class="cact-btn" id="cedit-btn-'+c.id+'" onclick="editComment(\''+c.id+'\')">Edit</button>'
     +'<button class="cact-btn" style="display:none" id="csave-btn-'+c.id+'" onclick="saveComment(\''+c.id+'\')">💾 Save</button>'
     +'<button class="cact-btn '+(c.resolved?'resolved-btn':'')+'" onclick="toggleResolve(\''+c.id+'\')">'+(c.resolved?'↩️ Unresolve':'✅ Resolve')+'</button>'
     +'</div>'
