@@ -122,10 +122,10 @@ body {
   background: var(--bg3);
 }
 #sidebar-hdr span {
-  font-size: 11px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: var(--text3);
+  color: var(--text1);
   font-weight: 700;
 }
 #songlist { flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 3px; }
@@ -153,18 +153,13 @@ body {
 .sthumb {
   width: 34px;
   height: 34px;
-  background: linear-gradient(135deg, var(--bg4), var(--bg3));
+  background: rgb(255, 255, 255);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
   flex-shrink: 0;
-  border: 1px solid var(--border);
-}
-.sitem.active .sthumb {
-  background: linear-gradient(135deg, rgba(255,77,109,0.25), rgba(255,77,109,0.1));
-  border-color: rgba(255,77,109,0.3);
 }
 .stitle {
   font-size: 13px;
@@ -226,7 +221,7 @@ body {
 /* ── WAVEFORM ── */
 #waveform-wrap {
   position: relative;
-  height: 95px;
+  height: 90px;
   background: var(--bg);
   border-radius: var(--radius);
   overflow: hidden;
@@ -740,8 +735,8 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
     <div id="sidebar-hdr">
       <span>Songs</span>
       <div style="display:flex;gap:5px;align-items:center;">
-        <button class="btn ghost" style="padding:4px 9px;font-size:11px;" onclick="openModal('version')">+ Version</button>
-        <button class="btn" style="padding:4px 9px;font-size:11px;" onclick="openModal('song')">+ Song</button>
+        <button class="btn ghost" style="padding:4px 9px;font-size:12px;" onclick="openModal('version')">+ Version</button>
+        <button class="btn ghost" style="padding:4px 9px;font-size:12px;" onclick="openModal('song')">+ Song</button>
       </div>
     </div>
     <div id="songlist">
