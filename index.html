@@ -395,16 +395,6 @@ input[type=range]::-webkit-slider-thumb {
   flex-direction: column;
   flex-shrink: 0;
 }
-#rp-hdr {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--text3);
-  font-weight: 700;
-  background: var(--bg3);
-}
 #cinput { padding: 14px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
 #stamprow { display: flex; align-items: center; gap: 8px; }
 #stampbadge {
@@ -799,7 +789,6 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
     <div id="cinput">
       <div id="stamprow">
         <div id="stampbadge">@0:00</div>
-        <span style="font-size:11px;color:var(--text3);font-weight:500;">click waveform to set time</span>
       </div>
       <div>
         <input id="cauthor" type="text" placeholder="Your name" />
@@ -1114,7 +1103,6 @@ function getInitials(name) {
 
 function renderComments() {
   var el=document.getElementById('comments-area');
-  document.getElementById('rp-hdr').textContent='New Comment';
   if(!comms.length){
     el.innerHTML='<div class="empty-state"><div class="empty-icon">💬</div>No comments yet</div>';
     return;
@@ -1175,7 +1163,7 @@ function renderCard(c) {
       +'<button class="cact-btn" onclick="toggleReplyBox(\''+c.id+'\')">'+ICON_REPLY+' Reply</button>'
       +'<button class="cact-btn" id="cedit-btn-'+c.id+'" onclick="editComment(\''+c.id+'\')">Edit</button>'
       +'<button class="cact-btn" style="display:none" id="csave-btn-'+c.id+'" onclick="saveComment(\''+c.id+'\')">💾 Save</button>'
-      +'<button class="cact-btn '+(c.resolved?'resolved-btn':'')+'" onclick="toggleResolve(\''+c.id+'\')">'+(c.resolved?'↩ Unresolve':'Resolve')+'</button>'
+      +'<button class="cact-btn '+(c.resolved?'resolved-btn':'')+'" onclick="toggleResolve(\''+c.id+'\')">'+(c.resolved?'↩ Unresolve':'✓ Resolve')+'</button>'
       +'<button class="cact-btn delete-btn" onclick="deleteComment(\''+c.id+'\')" title="Delete comment">'+ICON_TRASH+'</button>'
     +'</div>'
     +repliesHtml
