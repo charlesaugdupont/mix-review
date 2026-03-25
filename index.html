@@ -30,7 +30,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #0e0e0e; color: #e0e0e0;
 /* SIDEBAR */
 #sidebar { width: 240px; background: #111; border-right: 1px solid #1e1e1e; display: flex; flex-direction: column; flex-shrink: 0; }
 #sidebar-hdr { padding: 10px 14px; border-bottom: 1px solid #1e1e1e; display: flex; justify-content: space-between; align-items: center; }
-#sidebar-hdr span { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; font-weight: 700; }
+#sidebar-hdr span { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #666; font-weight: 700; }
 #songlist { flex: 1; overflow-y: auto; }
 .sitem { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid #181818; cursor: pointer; transition: background .15s; user-select: none; position: relative; }
 .sitem:hover { background: #181818; }
@@ -107,6 +107,19 @@ body { font-family: 'Segoe UI', sans-serif; background: #0e0e0e; color: #e0e0e0;
 #playbtn:hover { background: #aa0022; }
 #playbtn svg { width: 15px; height: 15px; fill: #fff; display: block; }
 #timedisplay { font-size: 12px; color: #777; min-width: 85px; font-variant-numeric: tabular-nums; }
+
+/* Download button */
+#dlbtn {
+  display: flex; align-items: center; gap: 5px;
+  background: transparent; border: 1px solid #2e2e2e; color: #555;
+  padding: 5px 10px; border-radius: 5px; cursor: pointer;
+  font-size: 11px; font-weight: 600; transition: all .15s;
+  white-space: nowrap;
+}
+#dlbtn:hover { border-color: #cc0033; color: #cc0033; }
+#dlbtn svg { flex-shrink: 0; }
+#dlbtn.loading { opacity: 0.5; pointer-events: none; }
+
 #volctr { display: flex; align-items: center; gap: 6px; margin-left: auto; color: #555; }
 input[type=range] { -webkit-appearance: none; height: 4px; background: #333; border-radius: 2px; cursor: pointer; outline: none; width: 70px; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; background: #cc0033; border-radius: 50%; }
@@ -270,8 +283,8 @@ button, .sitem, .vpill, .cdot {touch-action: manipulation;}
     <div id="sidebar-hdr">
       <span>Songs</span>
       <div style="display:flex;gap:5px;align-items:center;">
-        <button class="btn ghost" style="padding:3px 8px;font-size:10px;" onclick="openModal('version')">+ Version</button>
-        <button class="btn" style="padding:3px 8px;font-size:10px;" onclick="openModal('song')">+ Song</button>
+        <button class="btn ghost" style="padding:3px 8px;font-size:12px;" onclick="openModal('version')">+ Version</button>
+        <button class="btn" style="padding:3px 8px;font-size:12px;" onclick="openModal('song')">+ Song</button>
       </div>
     </div>
     <div id="songlist"><div style="padding:24px 14px;color:#444;font-size:12px;text-align:center;">No songs yet.</div></div>
@@ -296,6 +309,12 @@ button, .sitem, .vpill, .cdot {touch-action: manipulation;}
           <svg id="play-icon" viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg>
         </button>
         <div id="timedisplay">0:00 / 0:00</div>
+        <button id="dlbtn" onclick="downloadVersion()" title="Download current version" style="display:none;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 16l-5-5 1.41-1.41L11 13.17V4h2v9.17l2.59-2.58L17 11l-5 5zm-7 3h14v2H5v-2z"/>
+          </svg>
+          Download
+        </button>
         <div id="volctr">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="#555"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
           <input type="range" min="0" max="1" step="0.01" value="1" oninput="audio.volume=this.value"/>
@@ -376,17 +395,17 @@ var waveAnimFrame = null;
 var waveAnimStart = null;
 var waveAnimPeaks = null;
 var WAVE_ANIM_DURATION = 600; // ms
+var autoPlayNext = false;
 
 function setPlayIcon(p) { document.getElementById('play-icon').innerHTML = p ? ICON_PAUSE : ICON_PLAY; }
 
 // ── GLOBAL SPACEBAR HANDLER ───────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
   if (e.code !== 'Space') return;
-  // Don't intercept spacebar when typing in any text field
   var tag = document.activeElement ? document.activeElement.tagName : '';
   var isEditable = document.activeElement && document.activeElement.isContentEditable;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || isEditable) return;
-  e.preventDefault(); // stop page scroll
+  e.preventDefault();
   togglePlay();
 });
 
@@ -424,14 +443,20 @@ function connect(url, key) {
 }
 window.onload = function() {
   connect(SUPABASE_URL, SUPABASE_KEY);
+  handleMobileUI();
 };
 
 // ── SONGS ─────────────────────────────────────────────────────────────────────
 async function loadSongs() {
   var r = await sb.from('songs').select('*').order('sort_order', {ascending:true}).order('created_at');
   if (r.error) { toast('Error: ' + r.error.message); return; }
-  songs = r.data || []; renderSongs();
+  songs = r.data || [];
+  renderSongs();
+  if (songs.length && !curSong) {
+    pickSong(songs[0].id);
+  }
 }
+
 async function loadVers(sid) {
   var r = await sb.from('versions').select('*').eq('song_id', sid).order('created_at', {ascending:true});
   vers[sid] = r.data || []; return vers[sid];
@@ -510,6 +535,9 @@ async function loadVersion(vid) {
   document.getElementById('timedisplay').textContent = '0:00 / 0:00';
   document.getElementById('playhead').style.left = '0';
 
+  // Show the download button now that a version is loaded
+  document.getElementById('dlbtn').style.display = 'flex';
+
   // Update active pill
   renderVersionPills(vl, vid);
 
@@ -522,6 +550,15 @@ async function loadVersion(vid) {
     decodeAndCacheWave(vid, v.file_url);
   }
 
+  if (autoPlayNext) {
+    autoPlayNext = false;
+    audio.addEventListener('canplay', function() {
+      audio.play();
+      setPlayIcon(true);
+      tick();
+    }, { once: true });
+  }
+
   await loadComms(vid);
 }
 
@@ -530,10 +567,6 @@ function isMobile() {
 }
 
 window.addEventListener('resize', handleMobileUI);
-window.onload = function() {
-  connect(SUPABASE_URL, SUPABASE_KEY);
-  handleMobileUI();
-};
 
 function handleMobileUI() {
   var rp = document.getElementById('right-panel');
@@ -552,7 +585,6 @@ function setWaveLoading(on) {
 }
 
 function clearWaveCanvas() {
-  // Cancel any in-progress animation
   if (waveAnimFrame) { cancelAnimationFrame(waveAnimFrame); waveAnimFrame = null; }
   var c = document.getElementById('wcanvas'), ctx = c.getContext('2d');
   c.width = c.offsetWidth; c.height = c.offsetHeight;
@@ -567,17 +599,15 @@ async function decodeAndCacheWave(vid, url) {
     var audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
     audioCtx.close();
 
-    var BARS = 300;
+    var BARS = 250;
     var numChannels = audioBuffer.numberOfChannels;
     var length = audioBuffer.length;
 
-    // Pre-extract all channel arrays once
     var channels = [];
     for (var ch = 0; ch < numChannels; ch++) {
       channels.push(audioBuffer.getChannelData(ch));
     }
 
-    // Mix down to mono into a single Float32Array, subsampling every 4 samples
     var STEP = 4;
     var monoLength = Math.ceil(length / STEP);
     var mono = new Float32Array(monoLength);
@@ -590,7 +620,6 @@ async function decodeAndCacheWave(vid, url) {
       mono[i] = sum / numChannels;
     }
 
-    // Compute RMS peaks from the mono array
     var samplesPerBar = Math.floor(monoLength / BARS);
     var peaks = new Float32Array(BARS);
     for (var b = 0; b < BARS; b++) {
@@ -603,7 +632,6 @@ async function decodeAndCacheWave(vid, url) {
       peaks[b] = Math.sqrt(rmsSum / samplesPerBar);
     }
 
-    // Normalise
     var maxPeak = 0;
     for (var i = 0; i < BARS; i++) { if (peaks[i] > maxPeak) maxPeak = peaks[i]; }
     if (maxPeak > 0) { for (var i = 0; i < BARS; i++) { peaks[i] /= maxPeak; } }
@@ -618,7 +646,6 @@ async function decodeAndCacheWave(vid, url) {
   }
 }
 
-// Easing function — ease out cubic
 function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
 function animateWaveIn(peaks) {
@@ -641,7 +668,6 @@ function animateWaveIn(peaks) {
   waveAnimFrame = requestAnimationFrame(frame);
 }
 
-// scale parameter (0–1) controls the bar height during animation
 function drawWaveFromPeaks(peaks, scale) {
   if (scale === undefined) scale = 1;
   var c = document.getElementById('wcanvas'), ctx = c.getContext('2d');
@@ -669,7 +695,6 @@ function drawWaveFallback() {
 }
 
 function redrawWaveProgress() {
-  // Only redraw if animation is not running
   if (!waveAnimFrame && curVer && waveCache[curVer.id]) {
     drawWaveFromPeaks(waveCache[curVer.id], 1);
   }
@@ -681,7 +706,20 @@ function togglePlay() {
   if (audio.paused) { audio.play(); setPlayIcon(true); tick(); }
   else { audio.pause(); setPlayIcon(false); cancelAnimationFrame(raf); }
 }
-audio.onended = function(){ setPlayIcon(false); cancelAnimationFrame(raf); };
+
+audio.onended = function() {
+  setPlayIcon(false);
+  cancelAnimationFrame(raf);
+
+  if (!curSong || songs.length < 2) return;
+
+  var idx = songs.findIndex(function(s) { return s.id === curSong.id; });
+  if (idx >= 0 && idx < songs.length - 1) {
+    autoPlayNext = true;
+    pickSong(songs[idx + 1].id);
+  }
+};
+
 function tick() { if (!audio.paused) { updateHead(); raf = requestAnimationFrame(tick); } }
 function updateHead() {
   if (!audio.duration) return;
@@ -701,6 +739,35 @@ function seekTo(e) {
     curTs = audio.currentTime;
     document.getElementById('stampbadge').textContent = '@' + ft(curTs);
     updateHead();
+  }
+}
+
+async function downloadVersion() {
+  if (!curVer || !curSong) { toast('No version loaded'); return; }
+  var btn = document.getElementById('dlbtn');
+  btn.classList.add('loading');
+  btn.textContent = 'Downloading…';
+  try {
+    var resp = await fetch(curVer.file_url);
+    if (!resp.ok) throw new Error('Fetch failed');
+    var blob = await resp.blob();
+    var objectUrl = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = objectUrl;
+    // Derive a sensible filename: "Song Title - Version Label.ext"
+    var ext = curVer.file_url.split('.').pop().split('?')[0] || 'mp3';
+    a.download = curSong.title + ' - ' + curVer.label + '.' + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(objectUrl); }, 10000);
+    toast('Download started!');
+  } catch(e) {
+    toast('Download failed — try opening the file directly.');
+    console.error(e);
+  } finally {
+    btn.classList.remove('loading');
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l-5-5 1.41-1.41L11 13.17V4h2v9.17l2.59-2.58L17 11l-5 5zm-7 3h14v2H5v-2z"/></svg> Download';
   }
 }
 
