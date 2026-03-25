@@ -1086,13 +1086,20 @@ async function downloadVersion() {
 
 // ── COMMENTS ──────────────────────────────────────────────────────────────
 // Assign a consistent hue per author name for avatar colors
-var authorColors = {};
-var colorPalette = ['#60a5fa','#4ade80','#fbbf24','#a78bfa','#34d399','#f472b6','#fb923c','#38bdf8'];
-var colorIdx = 0;
-function getAuthorColor(name) {
-  if (!authorColors[name]) { authorColors[name] = colorPalette[colorIdx++ % colorPalette.length]; }
-  return authorColors[name];
-}
+var authorColors = {
+  "Charles": "#60a5fa",
+  "charles": "#60a5fa",
+  "Jeoffrey": "#4ade80",
+  "jeoffrey": "#4ade80",
+  "Remon": "#fbbf24",
+  "remon": "#fbbf24",
+  "Nikil": "#a78bfa",
+  "nikil": "#a78bfa",
+  "Maurizio": "#f472b6",
+  "maurizio": "#f472b6"
+};
+
+function getAuthorColor(name) {return authorColors[name] || "#000000";}
 function getInitials(name) {
   return name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
 }
