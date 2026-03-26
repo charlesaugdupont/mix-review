@@ -16,18 +16,25 @@ export default {
         return new Response(null, { headers: corsHeaders });
       }
 
-      const cache = caches.default;
-      let response = await cache.match(request);
-      if (response) return response;
+      // Forward range header if present
+      const upstreamHeaders = {};
+      const range = request.headers.get('Range');
+      if (range) upstreamHeaders['Range'] = range;
 
-      response = await fetch(supabaseUrl);
-      if (!response.ok) return new Response('Upstream error', { status: response.status });
+      const response = await fetch(supabaseUrl, { headers: upstreamHeaders });
 
-      const toCache = new Response(response.body, response);
-      toCache.headers.set('Cache-Control', 'public, max-age=2592000');
-      Object.entries(corsHeaders).forEach(([k, v]) => toCache.headers.set(k, v));
-      cache.put(request, toCache.clone());
-      return toCache;
+      if (!response.ok && response.status !== 206) {
+        return new Response('Upstream error', { status: response.status });
+      }
+
+      const newHeaders = new Headers(response.headers);
+      Object.entries(corsHeaders).forEach(([k, v]) => newHeaders.set(k, v));
+      newHeaders.set('Cache-Control', 'public, max-age=2592000');
+
+      return new Response(response.body, {
+        status: response.status,
+        headers: newHeaders,
+      });
     }
 
     // All other requests — serve static assets as normal
