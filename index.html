@@ -952,7 +952,9 @@ async function loadVersion(vid) {
   if (!curSong) return;
   var vl = vers[curSong.id]||[];
   var v = vl.find(function(x){return x.id===vid;}); if(!v) return;
-  curVer = v; audio.src = v.file_url; audio.load();
+  curVer = v;
+  audio.src = cdnUrl(v.file_url);
+  audio.load();
   setPlayIcon(false);
   document.getElementById('timedisplay').textContent = '0:00 / 0:00';
   document.getElementById('playhead').style.left = '0';
@@ -971,6 +973,11 @@ function isMobile() { return window.innerWidth < 900; }
 window.addEventListener('resize', handleMobileUI);
 function handleMobileUI() { document.getElementById('right-panel').style.display = isMobile()?'none':'flex'; }
 
+function cdnUrl(supabaseUrl) {
+  const filename = supabaseUrl.split('/audio/')[1];
+  return `https://mix-review.charlesdupont1997.workers.dev/audio-proxy/${filename}`;
+}
+
 // ── WAVEFORM ──────────────────────────────────────────────────────────────
 function setWaveLoading(on) {
   var el=document.getElementById('wave-loading'); el.textContent=on?'Analysing waveform...':''; el.style.display=on?'flex':'none';
@@ -982,7 +989,14 @@ function clearWaveCanvas() {
 }
 async function decodeAndCacheWave(vid,url) {
   try {
-    var resp=await fetch(url), buf=await resp.arrayBuffer();
+    const stored = localStorage.getItem('wave_' + vid);
+    if (stored) {
+      waveCache[vid] = new Float32Array(JSON.parse(stored));
+      setWaveLoading(false);
+      if (curVer && curVer.id === vid) animateWaveIn(waveCache[vid]);
+      return;
+    }
+    var resp = await fetch(cdnUrl(url)), buf=await resp.arrayBuffer();
     var actx=new(window.AudioContext||window.webkitAudioContext)();
     var abuf=await actx.decodeAudioData(buf); actx.close();
     var BARS=250,nc=abuf.numberOfChannels,len=abuf.length;
@@ -994,6 +1008,7 @@ async function decodeAndCacheWave(vid,url) {
     var mp=0; for(var i=0;i<BARS;i++) if(peaks[i]>mp) mp=peaks[i];
     if(mp>0) for(var i=0;i<BARS;i++) peaks[i]/=mp;
     waveCache[vid]=peaks; setWaveLoading(false);
+    localStorage.setItem('wave_' + vid, JSON.stringify(Array.from(peaks)));
     if(curVer&&curVer.id===vid) animateWaveIn(peaks);
   } catch(err) { setWaveLoading(false); console.warn('Wave decode failed:',err); drawWaveFallback(); }
 }
@@ -1066,22 +1081,17 @@ function seekTo(e) {
   if(audio.duration){audio.currentTime=p*audio.duration;curTs=audio.currentTime;document.getElementById('stampbadge').textContent='@'+ft(curTs);updateHead();}
 }
 
-async function downloadVersion() {
+function downloadVersion() {
   if(!curVer||!curSong){toast('No version loaded');return;}
-  var btn=document.getElementById('dlbtn'); btn.classList.add('loading'); btn.textContent='Downloading…';
-  try {
-    var resp=await fetch(curVer.file_url); if(!resp.ok) throw new Error('Fetch failed');
-    var blob=await resp.blob(),ou=URL.createObjectURL(blob);
-    var a=document.createElement('a'); a.href=ou;
-    var ext=curVer.file_url.split('.').pop().split('?')[0]||'mp3';
-    a.download=curSong.title+' - '+curVer.label+'.'+ext;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function(){URL.revokeObjectURL(ou);},10000); toast('Download started!');
-  } catch(e) { toast('Download failed.'); console.error(e); }
-  finally {
-    btn.classList.remove('loading');
-    btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l-5-5 1.41-1.41L11 13.17V4h2v9.17l2.59-2.58L17 11l-5 5zm-7 3h14v2H5v-2z"/></svg> Download';
-  }
+  var ext = curVer.file_url.split('.').pop().split('?')[0] || 'mp3';
+  var a = document.createElement('a');
+  a.href = cdnUrl(curVer.file_url);
+  a.download = curSong.title + ' - ' + curVer.label + '.' + ext;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast('Download started!');
 }
 
 // ── COMMENTS ──────────────────────────────────────────────────────────────
