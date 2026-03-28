@@ -944,7 +944,7 @@ async function pickSong(sid) {
   var vl = await loadVers(sid); renderSongs();
   document.getElementById('ptitle').textContent = curSong.title;
   document.getElementById('ptitle').style.color = '';
-  if (vl.length) { renderVersionPills(vl,vl[0].id); loadVersion(vl[0].id); }
+  if (vl.length) { renderVersionPills(vl,vl[vl.length-1].id); loadVersion(vl[vl.length-1].id); }
   else renderVersionPills([],null);
 }
 
