@@ -24,7 +24,7 @@
   --accent-bg: rgba(255,77,109,0.12);
   --green:     #4ade80;
   --green-bg:  rgba(74,222,128,0.10);
-  --blue:      #60a5fa;
+  --blue:      #0eccf8;
   --blue-bg:   rgba(96,165,250,0.10);
   --yellow:    #fbbf24;
   --radius:    10px;
@@ -72,6 +72,35 @@ body {
   border-radius: 20px;
   border: 1px solid var(--border);
 }
+#user-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#user-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 10px 4px 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+}
+#user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  color: #0f1117;
+  flex-shrink: 0;
+}
 
 /* ── BUTTONS ── */
 .btn {
@@ -100,6 +129,8 @@ body {
 .btn.danger:hover { background: var(--accent); color: #fff; border-color: var(--accent); transform: none; box-shadow: none; }
 .btn.green { background: var(--green); color: #0a1a0a; }
 .btn.green:hover { background: #22c55e; box-shadow: 0 4px 12px rgba(74,222,128,0.3); }
+.btn.blue { background: var(--blue); color: #0a1020; }
+.btn.blue:hover { background: #93c5fd; box-shadow: 0 4px 12px rgba(96,165,250,0.3); }
 
 /* ── LAYOUT ── */
 #layout { display: flex; flex: 1; overflow: hidden; }
@@ -168,6 +199,18 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text2);
+  flex: 1;
+  min-width: 0;
+}
+.unread-badge {
+  background: var(--blue);
+  color: #0a1020;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  line-height: 1.4;
 }
 
 /* ── CENTER ── */
@@ -278,9 +321,7 @@ body {
   transition: transform .15s, box-shadow .15s;
   z-index: 10;
 }
-.cdot:hover {
-  transform: translateX(-50%) scale(1.4);
-}
+.cdot:hover { transform: translateX(-50%) scale(1.4); }
 #wave-loading {
   position: absolute;
   inset: 0;
@@ -371,6 +412,11 @@ input[type=range]::-webkit-slider-thumb {
   flex-shrink: 0;
   font-weight: 600;
   letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  margin-bottom: 10px;
 }
 #comments-area {
   flex: 1;
@@ -403,6 +449,29 @@ input[type=range]::-webkit-slider-thumb {
   letter-spacing: 0.3px;
   font-variant-numeric: tabular-nums;
 }
+#commenter-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px 3px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+}
+#commenter-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 800;
+  color: #0f1117;
+}
 .input-label {
   font-size: 10px;
   font-weight: 700;
@@ -411,7 +480,7 @@ input[type=range]::-webkit-slider-thumb {
   letter-spacing: 1px;
   margin-bottom: -4px;
 }
-#cinput input, #cinput textarea {
+#cinput textarea {
   width: 100%;
   background: var(--bg);
   border: 1px solid var(--border2);
@@ -421,10 +490,12 @@ input[type=range]::-webkit-slider-thumb {
   font-size: 13px;
   font-family: inherit;
   transition: border-color .15s;
+  resize: vertical;
+  min-height: 250px;
+  line-height: 1.5;
 }
-#cinput textarea { resize: vertical; min-height: 250px; line-height: 1.5; }
-#cinput input:focus, #cinput textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,77,109,0.1); }
-#cinput input::placeholder, #cinput textarea::placeholder { color: var(--text3); }
+#cinput textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,77,109,0.1); }
+#cinput textarea::placeholder { color: var(--text3); }
 
 /* ── COMMENT CARDS ── */
 .ccard {
@@ -437,6 +508,12 @@ input[type=range]::-webkit-slider-thumb {
   position: relative;
 }
 .ccard:hover { border-color: var(--border2); border-left-color: var(--border2); background: var(--bg3); }
+.ccard.unread {
+  border-color: var(--blue);
+}
+.ccard.unread:hover {
+  border-color: #0da2c3;
+}
 .ccard.hl {
   border-left-color: var(--accent);
   border-color: rgba(255,77,109,0.3);
@@ -521,7 +598,8 @@ input[type=range]::-webkit-slider-thumb {
 .cact-btn.liked { color: var(--accent); }
 .cact-btn.resolved-btn { color: var(--green); }
 .cact-btn.resolved-btn:hover { background: var(--green-bg); color: var(--green); }
-
+.cact-btn.mark-read-btn { color: var(--text3); }
+.cact-btn.mark-read-btn:hover { background: var(--blue-bg); color: var(--blue); }
 .cact-btn.delete-btn { margin-left: auto; color: var(--border2); }
 .cact-btn.delete-btn:hover { color: var(--accent); background: var(--accent-bg); }
 .cact-btn.delete-btn:hover svg { color: var(--accent); transform: none; }
@@ -634,7 +712,10 @@ input[type=range]::-webkit-slider-thumb {
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }
-.modal input[type=text], .modal select {
+.modal input[type=text],
+.modal input[type=email],
+.modal input[type=password],
+.modal select {
   width: 100%;
   background: var(--bg);
   border: 1px solid var(--border2);
@@ -645,7 +726,10 @@ input[type=range]::-webkit-slider-thumb {
   font-family: inherit;
   transition: border-color .15s;
 }
-.modal input[type=text]:focus, .modal select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,77,109,0.1); }
+.modal input[type=text]:focus,
+.modal input[type=email]:focus,
+.modal input[type=password]:focus,
+.modal select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,77,109,0.1); }
 .modal select { color: var(--text2); }
 .modal select option { background: var(--bg2); }
 .modal input[type=file] {
@@ -666,6 +750,15 @@ input[type=range]::-webkit-slider-thumb {
 #uprog { font-size: 12px; color: var(--accent); margin-top: 10px; min-height: 18px; font-weight: 600; }
 #confirm-modal .modal { width: 360px; }
 #confirm-modal p { font-size: 13px; color: var(--text2); margin-top: 10px; line-height: 1.5; }
+
+/* ── LOGIN MODAL ── */
+#login-modal .modal { width: 380px; }
+#login-modal .modal h2 { font-size: 22px; }
+#login-logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+#login-logo span { color: var(--accent); }
+#login-subtitle { font-size: 13px; color: var(--text3); margin-top: 6px; font-weight: 500; }
+#login-error { font-size: 12px; color: var(--accent); margin-top: 8px; min-height: 18px; font-weight: 600; }
+#login-btn { width: 100%; padding: 11px; font-size: 14px; margin-top: 4px; }
 
 /* ── TOAST ── */
 #toast {
@@ -725,11 +818,27 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
   input, textarea, button { font-size: 14px; }
   .btn { padding: 10px; }
   .modal { width: 95%; padding: 18px; }
+  #user-chip span { display: none; }
 }
 </style>
 </head>
 <body>
 
+<!-- ── TOPBAR ── -->
+<div id="topbar">
+  <div style="display:flex;align-items:center;">
+    <h1>Mix<span>Review</span></h1>
+  </div>
+  <div id="user-area">
+    <div id="user-chip">
+      <div id="user-avatar"></div>
+      <span id="user-name"></span>
+    </div>
+    <button class="btn ghost" style="padding:4px 10px;font-size:12px;" onclick="doLogout()">Sign out</button>
+  </div>
+</div>
+
+<!-- ── MAIN LAYOUT ── -->
 <div id="layout">
   <div id="sidebar">
     <div id="sidebar-hdr">
@@ -787,17 +896,31 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
         <div id="stampbadge">@0:00</div>
       </div>
       <div>
-        <input id="cauthor" type="text" placeholder="Your name" />
-      </div>
-      <div>
-        <textarea id="ctext" placeholder="Leave comment at this timestamp"></textarea>
+        <textarea id="ctext" placeholder="Leave a comment at this timestamp…"></textarea>
       </div>
       <button class="btn" style="width:100%;font-size:13px;padding:9px;" onclick="postComment()">Post Comment</button>
     </div>
   </div>
 </div>
 
-<!-- Upload Modal -->
+<!-- ── LOGIN MODAL ── -->
+<div class="modal-bg" id="login-modal">
+  <div class="modal">
+    <div id="login-logo">Mix<span>Review</span></div>
+    <p id="login-subtitle">Members only — sign in to continue.</p>
+    <label>Email</label>
+    <input type="email" id="login-email" placeholder="" autocomplete="email" />
+    <label>Password</label>
+    <input type="password" id="login-password" placeholder="" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')doLogin()" />
+    <div id="login-error"></div>
+    <div class="modal-btns" style="margin-top:16px;">
+      <button class="btn" id="login-btn" onclick="doLogin()">Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── UPLOAD MODAL ── -->
 <div class="modal-bg" id="modal">
   <div class="modal">
     <h2 id="modal-title">Upload New Song</h2>
@@ -823,7 +946,7 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
   </div>
 </div>
 
-<!-- Confirm Modal -->
+<!-- ── CONFIRM MODAL ── -->
 <div class="modal-bg" id="confirm-modal">
   <div class="modal">
     <h2 id="confirm-title">Are you sure?</h2>
@@ -839,27 +962,38 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
 <audio id="audio" preload="metadata"></audio>
 
 <script>
-var sb = null, songs = [], vers = {}, comms = [], curSong = null, curVer = null, curTs = 0, raf = null;
+// ── GLOBALS ────────────────────────────────────────────────────────────────
+var sb = null;
+var songs = [], vers = {}, comms = [], curSong = null, curVer = null, curTs = 0, raf = null;
+var currentUser  = null;   // { id, name, color }
+var likesMap     = {};     // commentId → [{ userId, name, color }]
+var replyLikesMap= {};     // "commentId-ri" → [{ userId, name, color }]
+var readSet      = new Set(); // comment IDs the current user has marked as read
+var unreadCounts = {};     // songId → unread count
+
 var audio = document.getElementById('audio');
 var ICON_PLAY  = '<polygon points="6,3 20,12 6,21"/>';
 var ICON_PAUSE = '<rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/>';
-var ICON_HEART = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
-var ICON_TRASH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 1h4v2H4V4h4L9 3zm-3 5h12l-1 13H7L6 8zm5 2v9h1v-9h-1zm3 0v9h1v-9h-1z"/></svg>';
-var ICON_REPLY = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>';
+var ICON_HEART = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
+var ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 1h4v2H4V4h4L9 3zm-3 5h12l-1 13H7L6 8zm5 2v9h1v-9h-1zm3 0v9h1v-9h-1z"/></svg>';
+var ICON_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
 
 var confirmCallback = null, dragIdx = null, hlId = null, waveCache = {};
 var waveAnimFrame = null, waveAnimStart = null, WAVE_ANIM_DURATION = 600;
 var autoPlayNext = false;
 
-function setPlayIcon(p) { document.getElementById('play-icon').innerHTML = p ? ICON_PAUSE : ICON_PLAY; }
+const SUPABASE_URL = "https://nxmodpianwotdvpixjqp.supabase.co";
+const SUPABASE_KEY = "sb_publishable_iBK75q4oIOK25ph5VWJRYg_lxz2QwEM";
 
+// ── KEYBOARD ────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
   if (e.code !== 'Space') return;
   var tag = document.activeElement ? document.activeElement.tagName : '';
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (document.activeElement && document.activeElement.isContentEditable)) return;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   e.preventDefault(); togglePlay();
 });
 
+// ── WAVEFORM HOVER ──────────────────────────────────────────────────────────
 var waveWrap     = document.getElementById('waveform-wrap');
 var hoverLine    = document.getElementById('hover-line');
 var hoverTooltip = document.getElementById('hover-tooltip');
@@ -876,30 +1010,128 @@ waveWrap.addEventListener('mousemove', function(e) {
 waveWrap.addEventListener('mouseleave', function() { hoverLine.style.display = 'none'; hoverTooltip.style.display = 'none'; });
 waveWrap.addEventListener('click', function(e) { seekTo(e); });
 
-const SUPABASE_URL = "https://nxmodpianwotdvpixjqp.supabase.co";
-const SUPABASE_KEY = "sb_publishable_iBK75q4oIOK25ph5VWJRYg_lxz2QwEM";
+// ── INIT ────────────────────────────────────────────────────────────────────
+window.onload = async function() {
+  handleMobileUI();
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  var sessionRes = await sb.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if (session) {
+    var ok = await loadProfile(session.user.id);
+    if (ok) {
+      await loadAllReads();
+      loadSongs();
+    }
+  } else {
+    document.getElementById('login-modal').classList.add('open');
+    setTimeout(function(){ document.getElementById('login-email').focus(); }, 200);
+  }
+};
 
-function connect(url, key) {
-  if (!url || !key) { toast('Enter URL and key'); return; }
-  sb = window.supabase.createClient(url, key);
+// ── AUTH ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  var email    = document.getElementById('login-email').value.trim();
+  var password = document.getElementById('login-password').value;
+  var errEl    = document.getElementById('login-error');
+  var btn      = document.getElementById('login-btn');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Enter your email and password.'; return; }
+  btn.textContent = 'Signing in…'; btn.disabled = true;
+  var res = await sb.auth.signInWithPassword({ email: email, password: password });
+  btn.textContent = 'Sign In'; btn.disabled = false;
+  if (res.error) { errEl.textContent = res.error.message; return; }
+  var ok = await loadProfile(res.data.user.id);
+  if (!ok) { errEl.textContent = 'Profile not found. Contact Charles.'; return; }
+  document.getElementById('login-modal').classList.remove('open');
+  await loadAllReads();
   loadSongs();
 }
-window.onload = function() { connect(SUPABASE_URL, SUPABASE_KEY); handleMobileUI(); };
 
-// ── SONGS ──────────────────────────────────────────────────────────────────
+async function doLogout() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+async function loadProfile(uid) {
+  var res = await sb.from('profiles').select('*').eq('id', uid).single();
+  if (res.error || !res.data) return false;
+  currentUser = res.data;
+  // Topbar chip
+  var av = document.getElementById('user-avatar');
+  av.style.background = currentUser.color;
+  av.textContent = getInitials(currentUser.name);
+  document.getElementById('user-name').textContent = currentUser.name;
+  return true;
+}
+
+// Load ALL comment_reads for the current user once at startup
+async function loadAllReads() {
+  var res = await sb.from('comment_reads').select('comment_id').eq('user_id', currentUser.id);
+  readSet = new Set((res.data || []).map(function(r){ return r.comment_id; }));
+}
+
+// ── SONGS ───────────────────────────────────────────────────────────────────
 async function loadSongs() {
   var r = await sb.from('songs').select('*').order('sort_order',{ascending:true}).order('created_at');
   if (r.error) { toast('Error: '+r.error.message); return; }
-  songs = r.data || []; renderSongs();
+  songs = r.data || [];
+  await loadUnreadCounts();
+  renderSongs();
   if (songs.length && !curSong) pickSong(songs[0].id);
 }
+
+async function loadUnreadCounts() {
+  if (!currentUser) return;
+  // Fetch all comments not authored by this user
+  var res = await sb.from('comments').select('id, song_id, author').neq('author', currentUser.name);
+  unreadCounts = {};
+  for (var i = 0; i < (res.data || []).length; i++) {
+    var c = res.data[i];
+    if (!readSet.has(c.id)) {
+      unreadCounts[c.song_id] = (unreadCounts[c.song_id] || 0) + 1;
+    }
+  }
+}
+
 async function loadVers(sid) {
   var r = await sb.from('versions').select('*').eq('song_id',sid).order('created_at',{ascending:true});
   vers[sid] = r.data || []; return vers[sid];
 }
+
 async function loadComms(vid) {
-  var r = await sb.from('comments').select('*').eq('version_id',vid).order('timestamp_sec');
-  comms = r.data || []; renderComments(); renderDots();
+  var commRes = await sb.from('comments').select('*').eq('version_id',vid).order('timestamp_sec');
+  comms = commRes.data || [];
+
+  if (!comms.length) {
+    likesMap = {}; replyLikesMap = {};
+    renderComments(); renderDots(); return;
+  }
+
+  var ids = comms.map(function(c){ return c.id; });
+
+  // Fetch likes and reply-likes in parallel
+  var results = await Promise.all([
+    sb.from('comment_likes').select('comment_id, user_id, profiles(name, color)').in('comment_id', ids),
+    sb.from('reply_likes').select('comment_id, reply_index, user_id, profiles(name, color)').in('comment_id', ids)
+  ]);
+
+  // Build likesMap
+  likesMap = {};
+  (results[0].data || []).forEach(function(l) {
+    if (!likesMap[l.comment_id]) likesMap[l.comment_id] = [];
+    likesMap[l.comment_id].push({ userId: l.user_id, name: l.profiles.name, color: l.profiles.color });
+  });
+
+  // Build replyLikesMap
+  replyLikesMap = {};
+  (results[1].data || []).forEach(function(l) {
+    var key = l.comment_id + '-' + l.reply_index;
+    if (!replyLikesMap[key]) replyLikesMap[key] = [];
+    replyLikesMap[key].push({ userId: l.user_id, name: l.profiles.name, color: l.profiles.color });
+  });
+
+  renderComments();
+  renderDots();
 }
 
 function renderSongs() {
@@ -908,13 +1140,18 @@ function renderSongs() {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎵</div>No songs yet.<br>Upload one to get started.</div>';
     return;
   }
-  el.innerHTML = songs.map(function(s,i){
+  el.innerHTML = songs.map(function(s, i) {
+    var uc = unreadCounts[s.id] || 0;
+    var badge = uc > 0
+      ? '<span class="unread-badge">'+uc+'</span>'
+      : '';
     return '<div class="sitem'+(curSong&&curSong.id===s.id?' active':'')+'" draggable="true" data-id="'+s.id+'" '
       +'ondragstart="dragStart(event,'+i+')" ondragover="dragOver(event)" ondrop="dragDrop(event,'+i+')" ondragleave="dragLeave(event)" '
       +'onclick="handleSongClick(event,\''+s.id+'\')">'
       +'<span class="drag-handle">&#8942;&#8942;</span>'
       +'<div class="sthumb">&#127925;</div>'
-      +'<div style="min-width:0;flex:1"><div class="stitle">'+esc(s.title)+'</div></div>'
+      +'<div class="stitle">'+esc(s.title)+'</div>'
+      +badge
       +'</div>';
   }).join('');
 }
@@ -974,11 +1211,12 @@ window.addEventListener('resize', handleMobileUI);
 function handleMobileUI() { document.getElementById('right-panel').style.display = isMobile()?'none':'flex'; }
 
 function cdnUrl(supabaseUrl) {
-  const filename = supabaseUrl.split('/audio/')[1];
-  return `https://mix-review.charlesdupont1997.workers.dev/audio-proxy/${filename}`;
+  var filename = supabaseUrl.split('/audio/')[1];
+  return 'https://mix-review.charlesdupont1997.workers.dev/audio-proxy/'+filename;
 }
 
-// ── WAVEFORM ──────────────────────────────────────────────────────────────
+// ── WAVEFORM ────────────────────────────────────────────────────────────────
+function setPlayIcon(p) { document.getElementById('play-icon').innerHTML = p ? ICON_PAUSE : ICON_PLAY; }
 function setWaveLoading(on) {
   var el=document.getElementById('wave-loading'); el.textContent=on?'Analysing waveform...':''; el.style.display=on?'flex':'none';
 }
@@ -989,7 +1227,7 @@ function clearWaveCanvas() {
 }
 async function decodeAndCacheWave(vid,url) {
   try {
-    const stored = localStorage.getItem('wave_' + vid);
+    var stored = localStorage.getItem('wave_'+vid);
     if (stored) {
       waveCache[vid] = new Float32Array(JSON.parse(stored));
       setWaveLoading(false);
@@ -1008,7 +1246,7 @@ async function decodeAndCacheWave(vid,url) {
     var mp=0; for(var i=0;i<BARS;i++) if(peaks[i]>mp) mp=peaks[i];
     if(mp>0) for(var i=0;i<BARS;i++) peaks[i]/=mp;
     waveCache[vid]=peaks; setWaveLoading(false);
-    localStorage.setItem('wave_' + vid, JSON.stringify(Array.from(peaks)));
+    localStorage.setItem('wave_'+vid, JSON.stringify(Array.from(peaks)));
     if(curVer&&curVer.id===vid) animateWaveIn(peaks);
   } catch(err) { setWaveLoading(false); console.warn('Wave decode failed:',err); drawWaveFallback(); }
 }
@@ -1033,16 +1271,11 @@ function drawWaveFromPeaks(peaks,scale) {
   ctx.clearRect(0,0,c.width,c.height);
   for(var i=0;i<bars;i++){
     var h=Math.max(2*scale,peaks[i]*c.height*0.88*scale);
-    var played = (i/bars < pf);
-    // Gradient-like effect: taller bars are brighter
-    var alpha = 0.5 + peaks[i] * 0.5;
-    if (played) {
-      ctx.fillStyle = 'rgba(255,77,109,' + alpha + ')';
-    } else {
-      ctx.fillStyle = 'rgba(58,69,96,' + (0.4 + peaks[i] * 0.6) + ')';
-    }
-    var gap = bw > 3 ? 1.5 : 0.5;
-    ctx.fillRect(i*bw+gap, midY-h/2, bw-gap*2, h);
+    var played=(i/bars<pf);
+    var alpha=0.5+peaks[i]*0.5;
+    ctx.fillStyle=played?'rgba(255,77,109,'+alpha+')':'rgba(58,69,96,'+(0.4+peaks[i]*0.6)+')';
+    var gap=bw>3?1.5:0.5;
+    ctx.fillRect(i*bw+gap,midY-h/2,bw-gap*2,h);
   }
 }
 function drawWaveFallback() {
@@ -1055,7 +1288,7 @@ function redrawWaveProgress() {
   if(!waveAnimFrame&&curVer&&waveCache[curVer.id]) drawWaveFromPeaks(waveCache[curVer.id],1);
 }
 
-// ── PLAYER ────────────────────────────────────────────────────────────────
+// ── PLAYER ──────────────────────────────────────────────────────────────────
 function togglePlay() {
   if(!audio.src||audio.src===location.href){toast('No audio loaded');return;}
   if(audio.paused){audio.play();setPlayIcon(true);tick();}
@@ -1080,65 +1313,61 @@ function seekTo(e) {
   var r=waveWrap.getBoundingClientRect(),p=(e.clientX-r.left)/r.width;
   if(audio.duration){audio.currentTime=p*audio.duration;curTs=audio.currentTime;document.getElementById('stampbadge').textContent='@'+ft(curTs);updateHead();}
 }
-
 function downloadVersion() {
   if(!curVer||!curSong){toast('No version loaded');return;}
-  var ext = curVer.file_url.split('.').pop().split('?')[0] || 'mp3';
-  var a = document.createElement('a');
-  a.href = cdnUrl(curVer.file_url);
-  a.download = curSong.title + ' - ' + curVer.label + '.' + ext;
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  var ext=curVer.file_url.split('.').pop().split('?')[0]||'mp3';
+  var a=document.createElement('a');
+  a.href=cdnUrl(curVer.file_url);
+  a.download=curSong.title+' - '+curVer.label+'.'+ext;
+  a.target='_blank';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   toast('Download started!');
 }
 
-// ── COMMENTS ──────────────────────────────────────────────────────────────
-// Assign a consistent hue per author name for avatar colors
-var authorColors = {
-  "Charles": "#60a5fa",
-  "charles": "#60a5fa",
-  "Jeoffrey": "#4ade80",
-  "jeoffrey": "#4ade80",
-  "Remon": "#fbbf24",
-  "remon": "#fbbf24",
-  "Nikil": "#a78bfa",
-  "nikil": "#a78bfa",
-  "Maurizio": "#f472b6",
-  "maurizio": "#f472b6"
-};
-
-function getAuthorColor(name) {return authorColors[name] || "#000000";}
-function getInitials(name) {
-  return name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+// ── COMMENTS ────────────────────────────────────────────────────────────────
+function renderMainTop() {
+  var el = document.getElementById('main-top');
+  var unreadInView = comms.filter(function(c){ return !readSet.has(c.id) && c.author !== currentUser.name; }).length;
+  if (unreadInView > 0) {
+    el.innerHTML = '<span style="color:var(--blue);">'+unreadInView+' unread</span>'
+      +'<button class="btn ghost" style="padding:3px 9px;font-size:11px;" onclick="markAllRead()">Mark all as read</button>';
+  } else {
+    el.innerHTML = '';
+  }
 }
 
 function renderComments() {
-  var el=document.getElementById('comments-area');
-  if(!comms.length){
-    el.innerHTML='<div class="empty-state"><div class="empty-icon">💬</div>No comments yet</div>';
-    return;
+  var el = document.getElementById('comments-area');
+  if (!comms.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">💬</div>No comments yet</div>';
+    renderMainTop(); return;
   }
-  var active=comms.filter(function(c){return !c.resolved;});
-  var resolved=comms.filter(function(c){return c.resolved;});
-  var html=active.map(function(c){return renderCard(c);}).join('');
-  if(resolved.length){
-    html+='<div class="section-divider">Resolved ('+resolved.length+')</div>';
-    html+=resolved.map(function(c){return renderCard(c);}).join('');
+  var active   = comms.filter(function(c){return !c.resolved;});
+  var resolved = comms.filter(function(c){return c.resolved;});
+  var html = active.map(function(c){return renderCard(c);}).join('');
+  if (resolved.length) {
+    html += '<div class="section-divider">Resolved ('+resolved.length+')</div>';
+    html += resolved.map(function(c){return renderCard(c);}).join('');
   }
-  el.innerHTML=html;
+  el.innerHTML = html;
+  renderMainTop();
 }
 
 function renderCard(c) {
-  var replies=c.replies?JSON.parse(c.replies):[];
-  var likes=c.likes||0, liked=(c.likedBy||'').indexOf(getLiker())>-1;
-  var color = getAuthorColor(c.author);
+  var isUnread = !readSet.has(c.id) && currentUser && c.author !== currentUser.name;
+  var likes    = likesMap[c.id] || [];
+  var liked    = currentUser ? likes.some(function(l){return l.userId===currentUser.id;}) : false;
+  var likeNames= likes.map(function(l){return l.name;}).join(', ');
+  var color    = getAuthorColor(c.author);
+  var replies  = c.replies ? JSON.parse(c.replies) : [];
 
-  var repliesHtml='';
-  if(replies.length){
-    repliesHtml='<div class="replies">'+replies.map(function(r,ri){
-      var rLiked=(r.likedBy||'').indexOf(getLiker())>-1, rLikes=r.likes||0;
+  var repliesHtml = '';
+  if (replies.length) {
+    repliesHtml = '<div class="replies">' + replies.map(function(r, ri) {
+      var rKey   = c.id + '-' + ri;
+      var rLikes = replyLikesMap[rKey] || [];
+      var rLiked = currentUser ? rLikes.some(function(l){return l.userId===currentUser.id;}) : false;
+      var rNames = rLikes.map(function(l){return l.name;}).join(', ');
       var rColor = getAuthorColor(r.author);
       return '<div class="reply-card" id="reply-'+c.id+'-'+ri+'">'
         +'<div class="reply-top">'
@@ -1151,16 +1380,16 @@ function renderCard(c) {
         +'<textarea class="reply-edit-input" id="redit-'+c.id+'-'+ri+'">'+esc(r.text)+'</textarea>'
         +'<div class="reply-text" id="rtext-'+c.id+'-'+ri+'">'+esc(r.text)+'</div>'
         +'<div class="reply-actions">'
-          +'<button class="cact-btn'+(rLiked?' liked':'')+(rLikes>0?' has-likes':'')+'" onclick="likeReply(\''+c.id+'\','+ri+')">'+ICON_HEART+(rLikes>0?'<b style="font-size:13px;margin-left:1px;">'+rLikes+'</b>':'')+'</button>'
+          +'<button class="cact-btn'+(rLiked?' liked':'')+(rLikes.length>0?' has-likes':'')+'" onclick="likeReply(\''+c.id+'\','+ri+')" title="'+(rNames||'No likes yet')+'">'+ICON_HEART+(rLikes.length>0?'<b style="font-size:12px;margin-left:1px;">'+rLikes.length+'</b>':'')+'</button>'
           +'<button class="cact-btn" onclick="editReply(\''+c.id+'\','+ri+')">Edit</button>'
           +'<button class="cact-btn" style="display:none" id="rsave-'+c.id+'-'+ri+'" onclick="saveReply(\''+c.id+'\','+ri+')">💾 Save</button>'
           +'<button class="cact-btn reply-delete-btn" onclick="deleteReply(\''+c.id+'\','+ri+')" title="Delete reply">'+ICON_TRASH+'</button>'
         +'</div>'
       +'</div>';
-    }).join('')+'</div>';
+    }).join('') + '</div>';
   }
 
-  return '<div class="ccard'+(c.resolved?' resolved':'')+(c.id===hlId?' hl':'')+'" id="cc-'+c.id+'">'
+  return '<div class="ccard'+(c.resolved?' resolved':'')+(c.id===hlId?' hl':isUnread?' unread':'')+'" id="cc-'+c.id+'">'
     +'<div class="ccard-top">'
       +'<div style="display:flex;align-items:center;gap:8px;">'
         +'<div style="width:28px;height:28px;border-radius:50%;background:'+color+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0f1117;flex-shrink:0;">'+getInitials(c.author)+'</div>'
@@ -1172,18 +1401,18 @@ function renderCard(c) {
     +'<div class="ctext" id="ctext-'+c.id+'">'+esc(c.content)+'</div>'
     +'<div class="cdate">'+new Date(c.created_at).toLocaleDateString()+'</div>'
     +'<div class="cactions">'
-      +'<button class="cact-btn'+(liked?' liked':'')+(likes>0?' has-likes':'')+'" onclick="toggleLike(\''+c.id+'\')">'+ICON_HEART+(likes>0?'<b style="font-size:13px;margin-left:1px;">'+likes+'</b>':'')+'</button>'
-      +'<button class="cact-btn" onclick="toggleReplyBox(\''+c.id+'\')">'+'Reply</button>'
+      +'<button class="cact-btn'+(liked?' liked':'')+(likes.length>0?' has-likes':'')+'" onclick="toggleLike(\''+c.id+'\')" title="'+(likeNames||'No likes yet')+'">'+ICON_HEART+(likes.length>0?'<b style="font-size:12px;margin-left:1px;">'+likes.length+'</b>':'')+'</button>'
+      +'<button class="cact-btn" onclick="toggleReplyBox(\''+c.id+'\')" title="Reply">Reply</button>'
       +'<button class="cact-btn" id="cedit-btn-'+c.id+'" onclick="editComment(\''+c.id+'\')">Edit</button>'
       +'<button class="cact-btn" style="display:none" id="csave-btn-'+c.id+'" onclick="saveComment(\''+c.id+'\')">💾 Save</button>'
       +'<button class="cact-btn '+(c.resolved?'resolved-btn':'')+'" onclick="toggleResolve(\''+c.id+'\')">'+(c.resolved?'Unresolve':'Resolve')+'</button>'
+      +(isUnread?'<button class="cact-btn mark-read-btn" onclick="markRead(\''+c.id+'\')" title="Mark as read">'+'Mark as read</button>':'')
       +'<button class="cact-btn delete-btn" onclick="deleteComment(\''+c.id+'\')" title="Delete comment">'+ICON_TRASH+'</button>'
     +'</div>'
     +repliesHtml
     +'<div class="reply-input-wrap" id="replybox-'+c.id+'">'
       +'<div class="reply-input-row">'
-        +'<input type="text" placeholder="Your name" id="rauthor-'+c.id+'" style="width:90px;flex-shrink:0"/>'
-        +'<input type="text" placeholder="Write a reply..." id="rtext-input-'+c.id+'" onkeydown="if(event.key===\'Enter\')submitReply(\''+c.id+'\')" style="flex:1"/>'
+        +'<input type="text" placeholder="Write a reply…" id="rtext-input-'+c.id+'" onkeydown="if(event.key===\'Enter\')submitReply(\''+c.id+'\')" style="flex:1"/>'
         +'<button class="btn sm" onclick="submitReply(\''+c.id+'\')">Post</button>'
       +'</div>'
     +'</div>'
@@ -1195,6 +1424,11 @@ function renderDots() {
   if(!audio.duration){audio.addEventListener('loadedmetadata',renderDots,{once:true});return;}
   comms.filter(function(c){return !c.resolved;}).forEach(function(c){
     var d=document.createElement('div'); d.className='cdot';
+    // Unread dots shown in blue
+    if (!readSet.has(c.id) && currentUser && c.author !== currentUser.name) {
+      d.style.background = 'var(--blue)';
+      d.style.boxShadow = '0 0 6px rgba(96,165,250,0.6)';
+    }
     d.style.left=(c.timestamp_sec/audio.duration*100)+'%';
     d.title='@'+ft(c.timestamp_sec)+' · '+c.author+': '+c.content.slice(0,40)+(c.content.length>40?'…':'');
     d.onclick=function(e){e.stopPropagation();jumpTo(c.timestamp_sec);};
@@ -1216,25 +1450,86 @@ function hlComment() {
   if(hlId){var e=document.getElementById('cc-'+hlId);if(e)e.scrollIntoView({behavior:'smooth',block:'nearest'});}
 }
 
-// ── COMMENT ACTIONS ───────────────────────────────────────────────────────
-function getLiker() {
-  var n=document.getElementById('cauthor').value.trim();
-  return n||(localStorage.getItem('anon_id')||(function(){var id='u'+Date.now();localStorage.setItem('anon_id',id);return id;})());
+// ── LIKES ────────────────────────────────────────────────────────────────────
+async function toggleLike(cid) {
+  if (!currentUser) return;
+  var likes    = likesMap[cid] || [];
+  var alreadyLiked = likes.some(function(l){return l.userId===currentUser.id;});
+
+  if (alreadyLiked) {
+    await sb.from('comment_likes').delete().eq('comment_id', cid).eq('user_id', currentUser.id);
+    likesMap[cid] = likes.filter(function(l){return l.userId!==currentUser.id;});
+  } else {
+    await sb.from('comment_likes').insert({ comment_id: cid, user_id: currentUser.id });
+    if (!likesMap[cid]) likesMap[cid] = [];
+    likesMap[cid].push({ userId: currentUser.id, name: currentUser.name, color: currentUser.color });
+  }
+  renderComments();
 }
 
+async function likeReply(cid, ri) {
+  if (!currentUser) return;
+  var key   = cid + '-' + ri;
+  var likes = replyLikesMap[key] || [];
+  var alreadyLiked = likes.some(function(l){return l.userId===currentUser.id;});
+
+  if (alreadyLiked) {
+    await sb.from('reply_likes').delete().eq('comment_id', cid).eq('reply_index', ri).eq('user_id', currentUser.id);
+    replyLikesMap[key] = likes.filter(function(l){return l.userId!==currentUser.id;});
+  } else {
+    await sb.from('reply_likes').insert({ comment_id: cid, reply_index: ri, user_id: currentUser.id });
+    if (!replyLikesMap[key]) replyLikesMap[key] = [];
+    replyLikesMap[key].push({ userId: currentUser.id, name: currentUser.name, color: currentUser.color });
+  }
+  renderComments();
+}
+
+// ── READ TRACKING ────────────────────────────────────────────────────────────
+async function markRead(cid) {
+  if (!currentUser || readSet.has(cid)) return;
+  var res = await sb.from('comment_reads').insert({ user_id: currentUser.id, comment_id: cid });
+  if (res.error) { console.warn('markRead error', res.error); return; }
+  readSet.add(cid);
+  if (curSong) unreadCounts[curSong.id] = Math.max(0, (unreadCounts[curSong.id] || 0) - 1);
+  renderComments();
+  renderSongs();
+  renderDots();
+}
+
+async function markAllRead() {
+  if (!currentUser) return;
+  var unreadComments = comms.filter(function(c){ return !readSet.has(c.id) && c.author !== currentUser.name; });
+  if (!unreadComments.length) return;
+  var inserts = unreadComments.map(function(c){ return { user_id: currentUser.id, comment_id: c.id }; });
+  var res = await sb.from('comment_reads').upsert(inserts, { onConflict: 'user_id,comment_id' });
+  if (res.error) { console.warn('markAllRead error', res.error); return; }
+  unreadComments.forEach(function(c){ readSet.add(c.id); });
+  if (curSong) unreadCounts[curSong.id] = Math.max(0, (unreadCounts[curSong.id] || 0) - unreadComments.length);
+  renderComments();
+  renderSongs();
+  renderDots();
+}
+
+// ── COMMENT ACTIONS ─────────────────────────────────────────────────────────
 async function deleteComment(cid) {
-  var c = comms.find(x => x.id === cid);
+  var c = comms.find(function(x){return x.id===cid;});
   if (!c) return;
-  comms = comms.filter(x => x.id !== cid);
-  if (hlId === cid) hlId = null;
+  comms = comms.filter(function(x){return x.id!==cid;});
+  if (hlId===cid) hlId=null;
   renderComments(); renderDots();
-  var r = await sb.from('comments').delete().eq('id', cid);
+  var r = await sb.from('comments').delete().eq('id',cid);
   if (r.error) {
     comms.push(c);
-    comms.sort((a,b)=>a.timestamp_sec - b.timestamp_sec);
+    comms.sort(function(a,b){return a.timestamp_sec-b.timestamp_sec;});
     renderComments(); renderDots();
     toast('Error deleting comment'); console.error(r.error); return;
   }
+  // Remove from unread count if it was unread
+  if (!readSet.has(cid) && curSong && c.author !== currentUser.name) {
+    unreadCounts[curSong.id] = Math.max(0, (unreadCounts[curSong.id]||0) - 1);
+    renderSongs();
+  }
+  readSet.delete(cid);
   toast('Comment deleted');
 }
 
@@ -1250,42 +1545,19 @@ function deleteReply(cid, ri) {
   });
 }
 
-async function toggleLike(cid) {
-  var c=comms.find(function(x){return x.id===cid;}); if(!c) return;
-  var liker=getLiker(),likedBy=c.likedBy||'',liked=likedBy.indexOf(liker)>-1;
-  var newLikedBy=liked?likedBy.replace(liker+',','').replace(','+liker,'').replace(liker,''):(likedBy?likedBy+','+liker:liker);
-  var newLikes=Math.max(0,(c.likes||0)+(liked?-1:1));
-  await sb.from('comments').update({likes:newLikes,likedBy:newLikedBy}).eq('id',cid);
-  c.likes=newLikes; c.likedBy=newLikedBy; renderComments();
-}
-
-async function likeReply(cid,ri) {
-  var c=comms.find(function(x){return x.id===cid;}); if(!c) return;
-  var replies=c.replies?JSON.parse(c.replies):[], r=replies[ri]; if(!r) return;
-  var liker=getLiker(),likedBy=r.likedBy||'',liked=likedBy.indexOf(liker)>-1;
-  r.likedBy=liked?likedBy.replace(liker+',','').replace(','+liker,'').replace(liker,''):(likedBy?likedBy+','+liker:liker);
-  r.likes=Math.max(0,(r.likes||0)+(liked?-1:1));
-  await sb.from('comments').update({replies:JSON.stringify(replies)}).eq('id',cid);
-  c.replies=JSON.stringify(replies); renderComments();
-}
-
 function toggleReplyBox(cid) {
   var box=document.getElementById('replybox-'+cid); if(!box) return;
   box.style.display=box.style.display==='block'?'none':'block';
-  if(box.style.display==='block'){
-    var saved=document.getElementById('cauthor').value.trim();
-    if(saved) document.getElementById('rauthor-'+cid).value=saved;
-    document.getElementById('rtext-input-'+cid).focus();
-  }
+  if(box.style.display==='block') document.getElementById('rtext-input-'+cid).focus();
 }
 
 async function submitReply(cid) {
+  if (!currentUser) return;
   var c=comms.find(function(x){return x.id===cid;}); if(!c) return;
-  var author=document.getElementById('rauthor-'+cid).value.trim();
   var text=document.getElementById('rtext-input-'+cid).value.trim();
-  if(!author||!text){toast('Enter name and reply');return;}
+  if(!text){toast('Enter a reply');return;}
   var replies=c.replies?JSON.parse(c.replies):[];
-  replies.push({author:author,text:text,likes:0,likedBy:'',created_at:new Date().toISOString()});
+  replies.push({author: currentUser.name, text: text, likes:0, likedBy:'', created_at:new Date().toISOString()});
   await sb.from('comments').update({replies:JSON.stringify(replies)}).eq('id',cid);
   c.replies=JSON.stringify(replies);
   document.getElementById('rtext-input-'+cid).value='';
@@ -1329,18 +1601,27 @@ async function toggleResolve(cid) {
 async function postComment() {
   if(!sb){toast('Not connected');return;}
   if(!curVer){toast('Select a song first');return;}
-  var a=document.getElementById('cauthor').value.trim();
+  if(!currentUser){toast('Not signed in');return;}
   var t=document.getElementById('ctext').value.trim();
-  if(!a){toast('Enter your name');return;}
   if(!t){toast('Enter a comment');return;}
-  var r=await sb.from('comments').insert({song_id:curSong.id,version_id:curVer.id,author:a,timestamp_sec:curTs,content:t,likes:0,likedBy:'',resolved:false,replies:'[]'});
+  var r=await sb.from('comments').insert({
+    song_id: curSong.id,
+    version_id: curVer.id,
+    author: currentUser.name,
+    timestamp_sec: curTs,
+    content: t,
+    likes: 0,
+    likedBy: '',
+    resolved: false,
+    replies: '[]'
+  });
   if(r.error){toast('Error: '+r.error.message);return;}
   document.getElementById('ctext').value='';
   toast('Comment posted ✓');
   await loadComms(curVer.id);
 }
 
-// ── CONFIRM MODAL ─────────────────────────────────────────────────────────
+// ── CONFIRM MODAL ────────────────────────────────────────────────────────────
 function showConfirm(title,msg,cb) {
   document.getElementById('confirm-title').textContent=title;
   document.getElementById('confirm-msg').textContent=msg;
@@ -1348,12 +1629,12 @@ function showConfirm(title,msg,cb) {
   document.getElementById('confirm-modal').classList.add('open');
 }
 function closeConfirm(){document.getElementById('confirm-modal').classList.remove('open');confirmCallback=null;}
-function runConfirm() { const cb=confirmCallback; closeConfirm(); if(cb) cb(); }
+function runConfirm() { var cb=confirmCallback; closeConfirm(); if(cb) cb(); }
 
-// ── UPLOAD ────────────────────────────────────────────────────────────────
+// ── UPLOAD ───────────────────────────────────────────────────────────────────
 var umode='song';
 function openModal(m) {
-  if(!sb){toast('Connect to Supabase first');return;}
+  if(!sb){toast('Not connected');return;}
   umode=m;
   document.getElementById('modal-title').textContent=m==='song'?'Upload New Song':'Add Version to Song';
   document.getElementById('mf-song').style.display=m==='song'?'block':'none';
@@ -1379,7 +1660,7 @@ async function doUpload() {
     var dupVer=(vers[sid2]||[]).find(function(v){return v.label.toLowerCase()===lbl.toLowerCase();});
     if(dupVer){prog.textContent='A version with this label already exists for this song.';return;}
   }
-  prog.textContent='Uploading...';
+  prog.textContent='Uploading…';
   var fname=Date.now()+'_'+file.name.replace(/\s+/g,'_');
   var up=await sb.storage.from('audio').upload(fname,file);
   if(up.error){prog.textContent='Failed: '+up.error.message;return;}
@@ -1400,7 +1681,19 @@ async function doUpload() {
   setTimeout(closeModal,1400);
 }
 
-// ── UTILS ─────────────────────────────────────────────────────────────────
+// ── UTILS ────────────────────────────────────────────────────────────────────
+var AUTHOR_COLORS = {
+  'Charles':'#60a5fa','charles':'#60a5fa',
+  'Jeoffrey':'#4ade80','jeoffrey':'#4ade80',
+  'Remon':'#fbbf24','remon':'#fbbf24',
+  'Nikil':'#a78bfa','nikil':'#a78bfa',
+  'Maurizio':'#f472b6','maurizio':'#f472b6',
+  'Mixup':'#888888'
+};
+function getAuthorColor(name) { return AUTHOR_COLORS[name] || '#9ba3b8'; }
+function getInitials(name) {
+  return String(name).split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
+}
 function ft(s){if(!s||isNaN(s))return '0:00';return Math.floor(s/60)+':'+(Math.floor(s%60)<10?'0':'')+Math.floor(s%60);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},3000);}
