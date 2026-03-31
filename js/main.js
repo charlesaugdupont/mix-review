@@ -14,7 +14,7 @@ var ICON_HEART = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentC
 var ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 1h4v2H4V4h4L9 3zm-3 5h12l-1 13H7L6 8zm5 2v9h1v-9h-1zm3 0v9h1v-9h-1z"/></svg>';
 var ICON_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
 
-var confirmCallback = null, dragIdx = null, hlId = null, waveCache = {};
+var confirmCallback = null, dragIdx = null, waveCache = {};
 var waveAnimFrame = null, waveAnimStart = null, WAVE_ANIM_DURATION = 600;
 var autoPlayNext = false;
 
@@ -129,7 +129,7 @@ async function loadUnreadCounts() {
   }
 }
 
-async function loadVers(sid) {
+async function fetchVersions(sid) {
   var r = await sb.from('versions').select('*').eq('song_id',sid).order('created_at',{ascending:true});
   vers[sid] = r.data || []; return vers[sid];
 }
@@ -214,9 +214,10 @@ function dragDrop(e,toIdx) {
 
 async function pickSong(sid) {
   curSong = songs.find(function(s){return s.id===sid;});
-  var vl = await loadVers(sid); renderSongs();
+  var vl = await fetchVersions(sid); renderSongs();
   document.getElementById('ptitle').textContent = curSong.title;
   document.getElementById('ptitle').style.color = '';
+  audio.currentTime = 0;
   if (vl.length) { renderVersionPills(vl,vl[vl.length-1].id); loadVersion(vl[vl.length-1].id); }
   else renderVersionPills([],null);
 }
@@ -225,20 +226,31 @@ async function loadVersion(vid) {
   if (!curSong) return;
   var vl = vers[curSong.id]||[];
   var v = vl.find(function(x){return x.id===vid;}); if(!v) return;
+  var savedTime  = (autoPlayNext || !(audio.duration && !isNaN(audio.duration))) ? 0 : audio.currentTime;
+  var wasPlaying = !audio.paused || autoPlayNext;
   curVer = v;
   audio.src = cdnUrl(v.file_url);
   audio.load();
-  setPlayIcon(false);
-  document.getElementById('timedisplay').textContent = '0:00 / 0:00';
-  document.getElementById('playhead').style.left = '0';
+  if (!wasPlaying) setPlayIcon(false);
   document.getElementById('dlbtn').style.display = 'flex';
   renderVersionPills(vl, vid); clearWaveCanvas();
-  if (waveCache[vid]) animateWaveIn(waveCache[vid]);
-  else { setWaveLoading(true); decodeAndCacheWave(vid, v.file_url); }
-  if (autoPlayNext) {
+  // Restore playhead to saved position once the new audio is ready
+  audio.addEventListener('loadedmetadata', function() {
+    var t = Math.min(savedTime, audio.duration);
+    audio.currentTime = t;
+    curTs = t;
+    document.getElementById('stampbadge').textContent = '@' + ft(t);
+    document.getElementById('playhead').style.left = (t / audio.duration * 100) + '%';
+    document.getElementById('timedisplay').textContent = ft(t) + ' / ' + ft(audio.duration);
+    redrawWaveProgress();
+  }, {once: true});
+  // Resume playback (or start for autoPlayNext) once the browser is ready
+  if (wasPlaying) {
     autoPlayNext = false;
     audio.addEventListener('canplay', function(){ audio.play(); setPlayIcon(true); tick(); }, {once:true});
   }
+  if (waveCache[vid]) animateWaveIn(waveCache[vid]);
+  else { setWaveLoading(true); decodeAndCacheWave(vid, v.file_url); }
   await loadComms(vid);
 }
 
@@ -337,14 +349,16 @@ audio.onended = function() {
   if(idx>=0&&idx<songs.length-1){autoPlayNext=true;pickSong(songs[idx+1].id);}
 };
 function tick() { if(!audio.paused){updateHead();raf=requestAnimationFrame(tick);} }
+
 function updateHead() {
   if(!audio.duration) return;
   var p=audio.currentTime/audio.duration;
   document.getElementById('playhead').style.left=(p*100)+'%';
   document.getElementById('timedisplay').textContent=ft(audio.currentTime)+' / '+ft(audio.duration);
   document.getElementById('stampbadge').textContent='@'+ft(audio.currentTime);
-  curTs=audio.currentTime; redrawWaveProgress(); hlComment();
+  curTs=audio.currentTime; redrawWaveProgress();
 }
+
 function seekTo(e) {
   var r=waveWrap.getBoundingClientRect(),p=(e.clientX-r.left)/r.width;
   if(audio.duration){audio.currentTime=p*audio.duration;curTs=audio.currentTime;document.getElementById('stampbadge').textContent='@'+ft(curTs);updateHead();}
@@ -413,7 +427,7 @@ function renderCard(c) {
           +'</div>'
           +'<span class="reply-date">'+new Date(r.created_at).toLocaleDateString()+'</span>'
         +'</div>'
-        +'<textarea class="reply-edit-input" id="redit-'+c.id+'-'+ri+'">'+esc(r.text)+'</textarea>'
+        +'<textarea class="reply-edit-input" id="redit-'+c.id+'-'+ri+'">'+escVal(r.text)+'</textarea>'
         +'<div class="reply-text" id="rtext-'+c.id+'-'+ri+'">'+esc(r.text)+'</div>'
         +'<div class="reply-actions">'
           +'<button class="cact-btn'+(rLiked?' liked':'')+(rLikes.length>0?' has-likes':'')+'" onclick="likeReply(\''+c.id+'\','+ri+')" title="'+(rNames||'No likes yet')+'">'+ICON_HEART+(rLikes.length>0?'<b style="font-size:12px;margin-left:1px;">'+rLikes.length+'</b>':'')+'</button>'
@@ -425,7 +439,7 @@ function renderCard(c) {
     }).join('') + '</div>';
   }
 
-  return '<div class="ccard'+(c.resolved?' resolved':'')+(c.id===hlId?' hl':isUnread?' unread':'')+'" id="cc-'+c.id+'">'
+  return '<div class="ccard'+(c.resolved?' resolved':'')+(isUnread?' unread':'')+'" id="cc-'+c.id+'">'
     +'<div class="ccard-top">'
       +'<div style="display:flex;align-items:center;gap:8px;">'
         +'<div style="width:28px;height:28px;border-radius:50%;background:'+color+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0f1117;flex-shrink:0;">'+getInitials(c.author)+'</div>'
@@ -433,7 +447,7 @@ function renderCard(c) {
       +'</div>'
       +'<span class="ctsbadge" onclick="jumpTo('+c.timestamp_sec+')">@'+ft(c.timestamp_sec)+'</span>'
     +'</div>'
-    +'<textarea class="cedit-input" id="cedit-'+c.id+'">'+esc(c.content)+'</textarea>'
+    +'<textarea class="cedit-input" id="cedit-'+c.id+'">'+escVal(c.content)+'</textarea>'
     +'<div class="ctext" id="ctext-'+c.id+'">'+esc(c.content)+'</div>'
     +'<div class="cdate">'+new Date(c.created_at).toLocaleDateString()+'</div>'
     +'<div class="cactions">'
@@ -477,13 +491,6 @@ function jumpTo(s) {
   document.getElementById('stampbadge').textContent='@'+ft(s);
   updateHead();
   if(audio.paused){audio.play();setPlayIcon(true);tick();}
-}
-
-function hlComment() {
-  var n=comms.find(function(c){return Math.abs(c.timestamp_sec-audio.currentTime)<1.5;});
-  var newId=n?n.id:null; if(newId===hlId) return;
-  hlId=newId; renderComments();
-  if(hlId){var e=document.getElementById('cc-'+hlId);if(e)e.scrollIntoView({behavior:'smooth',block:'nearest'});}
 }
 
 // ── LIKES ────────────────────────────────────────────────────────────────────
@@ -547,26 +554,31 @@ async function markAllRead() {
 }
 
 // ── COMMENT ACTIONS ─────────────────────────────────────────────────────────
-async function deleteComment(cid) {
+function deleteComment(cid) {
   var c = comms.find(function(x){return x.id===cid;});
   if (!c) return;
-  comms = comms.filter(function(x){return x.id!==cid;});
-  if (hlId===cid) hlId=null;
-  renderComments(); renderDots();
-  var r = await sb.from('comments').delete().eq('id',cid);
-  if (r.error) {
-    comms.push(c);
-    comms.sort(function(a,b){return a.timestamp_sec-b.timestamp_sec;});
-    renderComments(); renderDots();
-    toast('Error deleting comment'); console.error(r.error); return;
-  }
-  // Remove from unread count if it was unread
-  if (!readSet.has(cid) && curSong && c.author !== currentUser.name) {
-    unreadCounts[curSong.id] = Math.max(0, (unreadCounts[curSong.id]||0) - 1);
-    renderSongs();
-  }
-  readSet.delete(cid);
-  toast('Comment deleted');
+  showConfirm(
+    'Delete comment?',
+    'Permanently delete the comment by "'+c.author+'" at '+ft(c.timestamp_sec)+'?',
+    async function() {
+      comms = comms.filter(function(x){return x.id!==cid;});
+      renderComments(); renderDots();
+      var r = await sb.from('comments').delete().eq('id',cid);
+      if (r.error) {
+        comms.push(c);
+        comms.sort(function(a,b){return a.timestamp_sec-b.timestamp_sec;});
+        renderComments(); renderDots();
+        toast('Error deleting comment'); console.error(r.error); return;
+      }
+      // Remove from unread count if it was unread
+      if (!readSet.has(cid) && curSong && c.author !== currentUser.name) {
+        unreadCounts[curSong.id] = Math.max(0, (unreadCounts[curSong.id]||0) - 1);
+        renderSongs();
+      }
+      readSet.delete(cid);
+      toast('Comment deleted');
+    }
+  );
 }
 
 function deleteReply(cid, ri) {
@@ -839,7 +851,7 @@ async function doUpload() {
     var vr=await sb.from('versions').insert({id:'v_'+Date.now(),song_id:sid2,label:lbl,file_url:fileUrl});
     if(vr.error){prog.textContent='Error: '+vr.error.message;return;}
     prog.textContent='Version added! ✓';
-    if(curSong&&curSong.id===sid2){var vl3=await loadVers(sid2);renderVersionPills(vl3,curVer?curVer.id:vl3[0].id);}
+    if(curSong&&curSong.id===sid2){var vl3=await fetchVersions(sid2);renderVersionPills(vl3,curVer?curVer.id:vl3[0].id);}
   }
   setTimeout(closeModal,1400);
 }
@@ -859,5 +871,6 @@ function getInitials(name) {
 }
 function ft(s){if(!s||isNaN(s))return '0:00';return Math.floor(s/60)+':'+(Math.floor(s%60)<10?'0':'')+Math.floor(s%60);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function escVal(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},3000);}
 window.addEventListener('resize',function(){if(curVer&&waveCache[curVer.id])drawWaveFromPeaks(waveCache[curVer.id],1);});
