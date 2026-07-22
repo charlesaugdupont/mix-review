@@ -123,6 +123,8 @@
       <input type="text" id="m-song-title" placeholder="e.g. Taken By The Tide" />
       <label>Version Label</label>
       <input type="text" id="m-song-ver" placeholder="e.g. Demo, V1, Rough Mix" />
+      <label>Folder</label>
+      <select id="m-song-folder"></select>
     </div>
     <div id="mf-version" style="display:none">
       <label>Song</label>
@@ -136,6 +138,20 @@
     <div class="modal-btns">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
       <button class="btn" onclick="doUpload()">Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── FOLDER MODAL ── -->
+<div class="modal-bg" id="folder-modal">
+  <div class="modal">
+    <h2 id="folder-modal-title">New Folder</h2>
+    <label>Name</label>
+    <input type="text" id="folder-name-input" placeholder="e.g. Next Album" maxlength="40"
+           onkeydown="if(event.key==='Enter')saveFolderModal()" />
+    <div class="modal-btns">
+      <button class="btn ghost" onclick="closeFolderModal()">Cancel</button>
+      <button class="btn" onclick="saveFolderModal()">Save</button>
     </div>
   </div>
 </div>

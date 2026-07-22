@@ -204,6 +204,73 @@ body {
   line-height: 1.4;
 }
 
+/* ── FOLDERS ── */
+.folder-group { display: flex; flex-direction: column; }
+.folder-hdr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 8px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+  transition: all .15s;
+}
+.folder-hdr:hover { background: var(--bg3); }
+.folder-hdr.drag-over { border-color: var(--accent); background: var(--accent-bg); }
+.folder-chevron {
+  color: var(--text3);
+  font-size: 11px;
+  transition: transform .15s;
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
+}
+.folder-chevron.collapsed { transform: rotate(-90deg); }
+.folder-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.folder-del-btn {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.folder-hdr:hover .folder-del-btn { opacity: 0.6; }
+.folder-del-btn:hover { opacity: 1 !important; color: var(--accent); background: var(--accent-bg); }
+.folder-body { display: flex; flex-direction: column; gap: 3px; padding: 0 0 6px; }
+.folder-empty {
+  font-size: 12px;
+  color: var(--text3);
+  padding: 6px 10px 10px 26px;
+  font-style: italic;
+}
+#add-folder-btn {
+  width: calc(100% - 12px);
+  margin: 6px;
+  border-style: dashed;
+  font-size: 11px;
+  padding: 8px;
+}
+#folder-modal .modal { width: 360px; }
+
 /* ── CENTER ── */
 #center { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -834,9 +901,7 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
 @media (max-width: 900px) {
   body { overflow: auto; }
   #layout { flex-direction: column; }
-  #sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
-  #songlist { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 6px; }
-  .sitem { min-width: 160px; }
+  #sidebar { width: 100%; height: auto; max-height: 260px; border-right: none; border-bottom: 1px solid var(--border); }
   #center { width: 100%; }
   #right-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); }
   #player { padding: 12px; }

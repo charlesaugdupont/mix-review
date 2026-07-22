@@ -1,6 +1,9 @@
 // ── GLOBALS ────────────────────────────────────────────────────────────────
 var sb = null;
 var songs = [], vers = {}, comms = [], curSong = null, curVer = null, curTs = 0, raf = null;
+var folders = [];               // [{ id, name, sort_order }]
+var collapsedFolders = new Set(JSON.parse(localStorage.getItem('collapsedFolders')||'[]'));
+var editingFolderId = null;     // folder being renamed in the folder modal, null = creating new
 var currentUser  = null;        // { id, name, color }
 var likesMap     = {};          // commentId → [{ userId, name, color }]
 var replyLikesMap= {};          // "commentId-ri" → [{ userId, name, color }]
@@ -14,7 +17,7 @@ var ICON_HEART = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentC
 var ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 1h4v2H4V4h4L9 3zm-3 5h12l-1 13H7L6 8zm5 2v9h1v-9h-1zm3 0v9h1v-9h-1z"/></svg>';
 var ICON_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
 
-var confirmCallback = null, dragIdx = null, waveCache = {};
+var confirmCallback = null, dragSongId = null, waveCache = {};
 var waveAnimFrame = null, waveAnimStart = null, WAVE_ANIM_DURATION = 600;
 var autoPlayNext = false;
 
@@ -56,6 +59,7 @@ window.onload = async function() {
     var ok = await loadProfile(session.user.id);
     if (ok) {
       await loadAllReads();
+      await loadFolders();
       loadSongs();
     }
   } else {
@@ -80,6 +84,7 @@ async function doLogin() {
   if (!ok) { errEl.textContent = 'Profile not found. Contact Charles.'; return; }
   document.getElementById('login-modal').classList.remove('open');
   await loadAllReads();
+  await loadFolders();
   loadSongs();
 }
 
@@ -106,6 +111,33 @@ async function loadAllReads() {
   readSet = new Set((res.data || []).map(function(r){ return r.comment_id; }));
 }
 
+// ── FOLDERS ─────────────────────────────────────────────────────────────────
+async function loadFolders() {
+  var r = await sb.from('folders').select('*').order('sort_order',{ascending:true});
+  if (r.error) { toast('Error: '+r.error.message); return; }
+  folders = r.data || [];
+}
+
+// Songs grouped by folder (folder order, then each song's sort_order within it)
+function groupedSongs() {
+  var byFolder = {};
+  songs.forEach(function(s) {
+    var fid = s.folder_id || (folders[0] && folders[0].id);
+    if (!byFolder[fid]) byFolder[fid] = [];
+    byFolder[fid].push(s);
+  });
+  return folders.map(function(f) {
+    var list = (byFolder[f.id]||[]).slice().sort(function(a,b){return (a.sort_order||0)-(b.sort_order||0);});
+    return { folder: f, songs: list };
+  });
+}
+
+function flatOrderedSongs() {
+  var out = [];
+  groupedSongs().forEach(function(g){ out = out.concat(g.songs); });
+  return out;
+}
+
 // ── SONGS ───────────────────────────────────────────────────────────────────
 async function loadSongs() {
   var r = await sb.from('songs').select('*').order('sort_order',{ascending:true}).order('created_at');
@@ -113,7 +145,10 @@ async function loadSongs() {
   songs = r.data || [];
   await loadUnreadCounts();
   renderSongs();
-  if (songs.length && !curSong) pickSong(songs[0].id);
+  if (songs.length && !curSong) {
+    var flat = flatOrderedSongs();
+    if (flat.length) pickSong(flat[0].id);
+  }
 }
 
 async function loadUnreadCounts() {
@@ -172,24 +207,43 @@ async function loadComms(vid) {
 
 function renderSongs() {
   var el = document.getElementById('songlist');
-  if (!songs.length) {
+  if (!songs.length && !folders.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎵</div>No songs yet.<br>Upload one to get started.</div>';
     return;
   }
-  el.innerHTML = songs.map(function(s, i) {
-    var uc = unreadCounts[s.id] || 0;
-    var badge = uc > 0
-      ? '<span class="unread-badge">'+uc+'</span>'
-      : '';
-    return '<div class="sitem'+(curSong&&curSong.id===s.id?' active':'')+'" draggable="true" data-id="'+s.id+'" '
-      +'ondragstart="dragStart(event,'+i+')" ondragover="dragOver(event)" ondrop="dragDrop(event,'+i+')" ondragleave="dragLeave(event)" '
-      +'onclick="handleSongClick(event,\''+s.id+'\')">'
-      +'<span class="drag-handle">&#8942;&#8942;</span>'
-      +'<div class="sthumb">&#127925;</div>'
-      +'<div class="stitle">'+esc(s.title)+'</div>'
-      +badge
-      +'</div>';
-  }).join('');
+  var groups = groupedSongs();
+  el.innerHTML = groups.map(function(g) {
+    var f = g.folder;
+    var collapsed = collapsedFolders.has(f.id);
+    var unread = g.songs.reduce(function(sum,s){return sum+(unreadCounts[s.id]||0);},0);
+    var songsHtml = g.songs.length
+      ? g.songs.map(function(s){ return renderSongItem(s, f.id); }).join('')
+      : '<div class="folder-empty">No songs yet</div>';
+    return '<div class="folder-group">'
+      +'<div class="folder-hdr" ondragover="folderDragOver(event)" ondrop="folderDrop(event,\''+f.id+'\')" ondragleave="folderDragLeave(event)">'
+        +'<span class="folder-chevron'+(collapsed?' collapsed':'')+'" onclick="toggleFolder(\''+f.id+'\')">&#9662;</span>'
+        +'<span class="folder-name" onclick="toggleFolder(\''+f.id+'\')" title="Double-click to rename" ondblclick="openFolderModal(\''+f.id+'\')">'+esc(f.name)+'</span>'
+        +(unread>0?'<span class="unread-badge">'+unread+'</span>':'')
+        +'<button class="folder-del-btn" onclick="event.stopPropagation();deleteFolder(\''+f.id+'\')" title="Delete folder">&times;</button>'
+      +'</div>'
+      +'<div class="folder-body" style="display:'+(collapsed?'none':'flex')+'">'+songsHtml+'</div>'
+    +'</div>';
+  }).join('') + '<button class="btn ghost" id="add-folder-btn" onclick="openFolderModal(null)">+ New Folder</button>';
+}
+
+function renderSongItem(s, folderId) {
+  var uc = unreadCounts[s.id] || 0;
+  var badge = uc > 0
+    ? '<span class="unread-badge">'+uc+'</span>'
+    : '';
+  return '<div class="sitem'+(curSong&&curSong.id===s.id?' active':'')+'" draggable="true" data-id="'+s.id+'" '
+    +'ondragstart="dragStart(event,\''+s.id+'\')" ondragover="dragOver(event)" ondrop="dragDrop(event,\''+s.id+'\',\''+folderId+'\')" ondragleave="dragLeave(event)" '
+    +'onclick="handleSongClick(event,\''+s.id+'\')">'
+    +'<span class="drag-handle">&#8942;&#8942;</span>'
+    +'<div class="sthumb">&#127925;</div>'
+    +'<div class="stitle">'+esc(s.title)+'</div>'
+    +badge
+    +'</div>';
 }
 
 function renderVersionPills(vl, activeId) {
@@ -202,14 +256,95 @@ function renderVersionPills(vl, activeId) {
 
 function handleSongClick(e,sid) { if(e.target.classList.contains('drag-handle')) return; pickSong(sid); }
 
-function dragStart(e,i) { dragIdx=i; e.dataTransfer.effectAllowed='move'; }
+// Move song `sid` into `folderId`, positioned right before `beforeSid` (or appended to the end if null)
+async function moveSong(sid, folderId, beforeSid) {
+  var moving = songs.find(function(s){return s.id===sid;});
+  if (!moving) return;
+  moving.folder_id = folderId;
+  var list = songs.filter(function(s){return s.folder_id===folderId && s.id!==sid;})
+                   .sort(function(a,b){return (a.sort_order||0)-(b.sort_order||0);});
+  var idx = beforeSid ? list.findIndex(function(s){return s.id===beforeSid;}) : -1;
+  if (idx===-1) idx = list.length;
+  list.splice(idx,0,moving);
+  list.forEach(function(s,i){ s.sort_order=i; });
+  renderSongs();
+  await Promise.all(list.map(function(s){
+    return sb.from('songs').update({sort_order:s.sort_order, folder_id:s.folder_id}).eq('id',s.id);
+  }));
+}
+
+function dragStart(e,sid) { dragSongId=sid; e.dataTransfer.effectAllowed='move'; }
 function dragOver(e)    { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
 function dragLeave(e)   { e.currentTarget.classList.remove('drag-over'); }
-function dragDrop(e,toIdx) {
+function dragDrop(e,targetSid,folderId) {
   e.currentTarget.classList.remove('drag-over');
-  if (dragIdx===null||dragIdx===toIdx) return;
-  var moved=songs.splice(dragIdx,1)[0]; songs.splice(toIdx,0,moved); dragIdx=null; renderSongs();
-  songs.forEach(function(s,i){ sb.from('songs').update({sort_order:i}).eq('id',s.id); });
+  if (!dragSongId||dragSongId===targetSid) { dragSongId=null; return; }
+  var sid=dragSongId; dragSongId=null;
+  moveSong(sid, folderId, targetSid);
+}
+
+function folderDragOver(e)  { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function folderDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function folderDrop(e,folderId) {
+  e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+  if (!dragSongId) return;
+  var sid=dragSongId; dragSongId=null;
+  moveSong(sid, folderId, null);
+}
+
+function toggleFolder(fid) {
+  if (collapsedFolders.has(fid)) collapsedFolders.delete(fid); else collapsedFolders.add(fid);
+  localStorage.setItem('collapsedFolders', JSON.stringify(Array.from(collapsedFolders)));
+  renderSongs();
+}
+
+// Opens the folder modal in create mode (fid=null) or rename mode (fid set)
+function openFolderModal(fid) {
+  editingFolderId = fid;
+  var f = fid ? folders.find(function(x){return x.id===fid;}) : null;
+  document.getElementById('folder-modal-title').textContent = f ? 'Rename Folder' : 'New Folder';
+  document.getElementById('folder-name-input').value = f ? f.name : '';
+  document.getElementById('folder-modal').classList.add('open');
+  setTimeout(function(){ document.getElementById('folder-name-input').focus(); }, 50);
+}
+function closeFolderModal() { document.getElementById('folder-modal').classList.remove('open'); editingFolderId=null; }
+
+async function saveFolderModal() {
+  var name = document.getElementById('folder-name-input').value.trim();
+  if (!name) { toast('Enter a folder name'); return; }
+  var dup = folders.find(function(f){return f.name.toLowerCase()===name.toLowerCase() && f.id!==editingFolderId;});
+  if (dup) { toast('A folder with this name already exists.'); return; }
+
+  if (editingFolderId) {
+    var f = folders.find(function(x){return x.id===editingFolderId;});
+    var r = await sb.from('folders').update({name:name}).eq('id',editingFolderId);
+    if (r.error) { toast('Error: '+r.error.message); return; }
+    f.name = name;
+  } else {
+    var id = 'folder_'+Date.now();
+    var r2 = await sb.from('folders').insert({id:id, name:name, sort_order:folders.length});
+    if (r2.error) { toast('Error: '+r2.error.message); return; }
+    folders.push({id:id, name:name, sort_order:folders.length});
+  }
+  closeFolderModal();
+  renderSongs();
+}
+
+function deleteFolder(fid) {
+  var f = folders.find(function(x){return x.id===fid;});
+  if (!f) return;
+  if (folders.length<=1) { toast('You need at least one folder.'); return; }
+  var count = songs.filter(function(s){return s.folder_id===fid;}).length;
+  if (count>0) { toast('Move or delete the songs in this folder first.'); return; }
+  showConfirm('Delete folder?', 'Permanently delete the empty folder "'+f.name+'"?', async function() {
+    var r = await sb.from('folders').delete().eq('id',fid);
+    if (r.error) { toast('Error: '+r.error.message); return; }
+    folders = folders.filter(function(x){return x.id!==fid;});
+    collapsedFolders.delete(fid);
+    localStorage.setItem('collapsedFolders', JSON.stringify(Array.from(collapsedFolders)));
+    renderSongs();
+    toast('Folder deleted');
+  });
 }
 
 async function pickSong(sid) {
@@ -345,8 +480,9 @@ function togglePlay() {
 audio.onended = function() {
   setPlayIcon(false); cancelAnimationFrame(raf);
   if(!curSong||songs.length<2) return;
-  var idx=songs.findIndex(function(s){return s.id===curSong.id;});
-  if(idx>=0&&idx<songs.length-1){autoPlayNext=true;pickSong(songs[idx+1].id);}
+  var flat=flatOrderedSongs();
+  var idx=flat.findIndex(function(s){return s.id===curSong.id;});
+  if(idx>=0&&idx<flat.length-1){autoPlayNext=true;pickSong(flat[idx+1].id);}
 };
 function tick() { if(!audio.paused){updateHead();raf=requestAnimationFrame(tick);} }
 
@@ -814,7 +950,18 @@ function openModal(m) {
   document.getElementById('modal-title').textContent=m==='song'?'Upload New Song':'Add Version to Song';
   document.getElementById('mf-song').style.display=m==='song'?'block':'none';
   document.getElementById('mf-version').style.display=m==='version'?'block':'none';
-  if(m==='version') document.getElementById('m-song-sel').innerHTML=songs.map(function(s){return '<option value="'+s.id+'">'+esc(s.title)+'</option>';}).join('');
+  if(m==='version') {
+    document.getElementById('m-song-sel').innerHTML=groupedSongs().map(function(g){
+      var opts=g.songs.map(function(s){return '<option value="'+s.id+'">'+esc(s.title)+'</option>';}).join('');
+      return opts?'<optgroup label="'+esc(g.folder.name)+'">'+opts+'</optgroup>':'';
+    }).join('');
+  }
+  if(m==='song') {
+    var ideas=folders.find(function(f){return f.name.toLowerCase()==='ideas';});
+    document.getElementById('m-song-folder').innerHTML=folders.map(function(f){
+      return '<option value="'+f.id+'"'+(ideas&&f.id===ideas.id?' selected':'')+'>'+esc(f.name)+'</option>';
+    }).join('');
+  }
   document.getElementById('uprog').textContent='';
   document.getElementById('m-file').value='';
   document.getElementById('modal').classList.add('open');
@@ -825,10 +972,12 @@ async function doUpload() {
   if(!sb) return;
   var file=document.getElementById('m-file').files[0]; if(!file){toast('Select a file');return;}
   var prog=document.getElementById('uprog');
+  var folderId;
   if(umode==='song'){
     var title=document.getElementById('m-song-title').value.trim(); if(!title){prog.textContent='Enter a title';return;}
     var dup=songs.find(function(s){return s.title.toLowerCase()===title.toLowerCase();});
     if(dup){prog.textContent='A song with this name already exists.';return;}
+    folderId=document.getElementById('m-song-folder').value;
   } else {
     var sid2=document.getElementById('m-song-sel').value;
     var lbl=document.getElementById('m-ver-label').value.trim(); if(!lbl){prog.textContent='Enter a version label';return;}
@@ -843,7 +992,8 @@ async function doUpload() {
   if(umode==='song'){
     var verLabel=document.getElementById('m-song-ver').value.trim()||'V1';
     var sid='song_'+Date.now();
-    var sr=await sb.from('songs').insert({id:sid,title:title,sort_order:songs.length});
+    var folderCount=songs.filter(function(s){return s.folder_id===folderId;}).length;
+    var sr=await sb.from('songs').insert({id:sid,title:title,sort_order:folderCount,folder_id:folderId});
     if(sr.error){prog.textContent='Error: '+sr.error.message;return;}
     await sb.from('versions').insert({id:'v_'+Date.now(),song_id:sid,label:verLabel,file_url:fileUrl});
     prog.textContent='Song uploaded! 🎉'; await loadSongs();
