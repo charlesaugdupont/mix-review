@@ -240,6 +240,12 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.folder-count {
+  color: var(--text3);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
 .folder-del-btn {
   background: none;
   border: none;
@@ -899,10 +905,12 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
 
 /* ── MOBILE ── */
 @media (max-width: 900px) {
-  body { overflow: auto; }
-  #layout { flex-direction: column; }
+  body { overflow-y: auto; height: auto; min-height: 100vh; }
+  #layout { flex-direction: column; overflow: visible; }
   #sidebar { width: 100%; height: auto; max-height: 260px; border-right: none; border-bottom: 1px solid var(--border); }
-  #center { width: 100%; }
+  #songlist { min-height: 0; }
+  #center { width: 100%; overflow: visible; }
+  #main-area { overflow: visible; }
   #right-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); }
   #player { padding: 12px; }
   #player-top { flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -910,7 +918,7 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
   #waveform-wrap { height: 60px; }
   #pcontrols { flex-wrap: wrap; gap: 8px; }
   #volctr { margin-left: 0; }
-  #comments-area { padding: 10px; }
+  #comments-area { padding: 10px; overflow-y: visible; }
   .ccard { padding: 10px; }
   input, textarea, button { font-size: 14px; }
   .btn { padding: 10px; }

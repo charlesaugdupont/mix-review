@@ -29,6 +29,7 @@ export default {
           return new Response('Upstream error', { status: originResponse.status, headers: corsHeaders });
         }
         const cacheHeaders = new Headers(originResponse.headers);
+        cacheHeaders.delete('Set-Cookie'); // Supabase's Cloudflare edge sets __cf_bm; scoped to supabase.co, invalid on our domain
         cacheHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
         cacheHeaders.set('Accept-Ranges', 'bytes');
         const cacheable = new Response(originResponse.body, { status: 200, headers: cacheHeaders });

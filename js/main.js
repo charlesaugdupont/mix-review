@@ -222,7 +222,7 @@ function renderSongs() {
     return '<div class="folder-group">'
       +'<div class="folder-hdr" ondragover="folderDragOver(event)" ondrop="folderDrop(event,\''+f.id+'\')" ondragleave="folderDragLeave(event)">'
         +'<span class="folder-chevron'+(collapsed?' collapsed':'')+'" onclick="toggleFolder(\''+f.id+'\')">&#9662;</span>'
-        +'<span class="folder-name" onclick="toggleFolder(\''+f.id+'\')" title="Double-click to rename" ondblclick="openFolderModal(\''+f.id+'\')">'+esc(f.name)+'</span>'
+        +'<span class="folder-name" onclick="toggleFolder(\''+f.id+'\')" title="Double-click to rename" ondblclick="openFolderModal(\''+f.id+'\')">'+esc(f.name)+' <span class="folder-count">('+g.songs.length+')</span></span>'
         +(unread>0?'<span class="unread-badge">'+unread+'</span>':'')
         +'<button class="folder-del-btn" onclick="event.stopPropagation();deleteFolder(\''+f.id+'\')" title="Delete folder">&times;</button>'
       +'</div>'
