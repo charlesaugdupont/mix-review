@@ -106,6 +106,7 @@ body {
   font-family: inherit;
   transition: all .15s;
   letter-spacing: 0.2px;
+  white-space: nowrap;
 }
 .btn:hover { background: #e03558; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,77,109,0.3); }
 .btn:active { transform: translateY(0); }
@@ -501,6 +502,7 @@ input[type=range]::-webkit-slider-thumb {
   flex-shrink: 0;
 }
 #cinput { padding: 14px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+#post-comment-btn { width: 100%; font-size: 13px; padding: 9px; }
 #stamprow { display: flex; align-items: center; gap: 8px; }
 #stampbadge {
   background: var(--accent-bg);
@@ -905,13 +907,12 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
 
 /* ── MOBILE ── */
 @media (max-width: 900px) {
-  body { overflow-y: auto; height: auto; min-height: 100vh; }
+  body { overflow-y: auto; height: auto; min-height: 100vh; padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
   #layout { flex-direction: column; overflow: visible; }
   #sidebar { width: 100%; height: auto; max-height: 260px; border-right: none; border-bottom: 1px solid var(--border); }
   #songlist { min-height: 0; }
   #center { width: 100%; overflow: visible; }
   #main-area { overflow: visible; }
-  #right-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); }
   #player { padding: 12px; }
   #player-top { flex-direction: column; align-items: flex-start; gap: 6px; }
   #ptitle { font-size: 14px; }
@@ -923,5 +924,31 @@ button, .sitem, .vpill, .cdot { touch-action: manipulation; }
   input, textarea, button { font-size: 14px; }
   .btn { padding: 10px; }
   .modal { width: 95%; padding: 18px; }
+
+  /* Comment composer becomes a fixed bottom bar instead of a right sidebar */
+  #right-panel {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    z-index: 40;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #cinput { flex-direction: row; align-items: center; padding: 8px 10px; gap: 8px; }
+  #stamprow { flex-shrink: 0; }
+  #ctext-wrap { flex: 1; min-width: 0; }
+  #cinput textarea { min-height: 38px; max-height: 96px; padding: 8px 10px; resize: none; font-size: 16px; overflow-y: auto; }
+  #post-comment-btn { width: auto; flex-shrink: 0; padding: 9px 14px; }
+
+  /* Text that only makes sense with more room to breathe */
+  .hide-mobile { display: none; }
+
+  /* Avatar chip: symmetric now that the name label is hidden */
+  #user-chip { padding: 3px; gap: 0; }
   #user-chip span { display: none; }
+
+  /* Sidebar header buttons: keep them compact and on one line */
+  #sidebar-hdr { padding: 10px 12px; }
+  #sidebar-hdr .btn { padding: 5px 8px; font-size: 11px; }
 }

@@ -47,11 +47,19 @@ waveWrap.addEventListener('mousemove', function(e) {
   hoverTooltip.style.display = 'block';
 });
 waveWrap.addEventListener('mouseleave', function() { hoverLine.style.display = 'none'; hoverTooltip.style.display = 'none'; });
+
+// ── MOBILE COMMENT COMPOSER ─────────────────────────────────────────────────
+// On mobile the composer is a fixed bottom bar with a short textarea that
+// grows with the comment instead of the desktop's tall sidebar textarea.
+document.getElementById('ctext').addEventListener('input', function() {
+  if (window.innerWidth >= 900) return;
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 96) + 'px';
+});
 waveWrap.addEventListener('click', function(e) { seekTo(e); });
 
 // ── INIT ────────────────────────────────────────────────────────────────────
 window.onload = async function() {
-  handleMobileUI();
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   var sessionRes = await sb.auth.getSession();
   var session = sessionRes.data && sessionRes.data.session;
@@ -388,10 +396,6 @@ async function loadVersion(vid) {
   else { setWaveLoading(true); decodeAndCacheWave(vid, v.file_url); }
   await loadComms(vid);
 }
-
-function isMobile() { return window.innerWidth < 900; }
-window.addEventListener('resize', handleMobileUI);
-function handleMobileUI() { document.getElementById('right-panel').style.display = isMobile()?'none':'flex'; }
 
 function cdnUrl(supabaseUrl) {
   var filename = supabaseUrl.split('/audio/')[1];
@@ -801,6 +805,7 @@ async function postComment() {
   });
   if(r.error){toast('Error: '+r.error.message);return;}
   document.getElementById('ctext').value='';
+  document.getElementById('ctext').style.height='';
   toast('Comment posted ✓');
   await loadComms(curVer.id);
 }
