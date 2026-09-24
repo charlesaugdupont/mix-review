@@ -2,8 +2,8 @@
 import { buildDigest, formatDigest } from './digest-core.js';
 
 const HOUR = 3600 * 1000;
-const FIRST_DIGEST_LOOKBACK = 48 * HOUR; // window for a subscriber's very first digest
-const RESEND_GUARD = 12 * HOUR;          // cron never sends to the same person twice within this
+const FIRST_DIGEST_LOOKBACK = 24 * HOUR; // window for a subscriber's very first digest
+const RESEND_GUARD = 2 * HOUR;           // cron never sends to the same person twice within this
 const SEND_GAP_MS = 2000;                // pause between CallMeBot calls
 
 // ── Supabase REST helpers ──────────────────────────────────────────────────

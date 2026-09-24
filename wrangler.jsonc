@@ -12,10 +12,10 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  // WhatsApp digest: 09:00 Amsterdam on Mon/Wed/Fri. Both UTC hours are listed so it
+  // WhatsApp digest: every day at 09:00 Amsterdam. Both UTC hours are listed so it
   // works in summer (UTC+2) and winter (UTC+1); worker.js ignores the one that isn't 09:00.
   "triggers": {
-    "crons": ["0 7,8 * * MON,WED,FRI"]
+    "crons": ["0 7,8 * * *"]
   },
   "vars": {
     "SUPABASE_URL": "https://nxmodpianwotdvpixjqp.supabase.co",
