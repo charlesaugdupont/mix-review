@@ -224,9 +224,18 @@ function render(d, appUrl, { bandMax = Infinity, groupsMax = Infinity, quoteMax 
   return out.join('\n');
 }
 
-/** Returns the WhatsApp text, or null when there's nothing to report. */
+function renderQuiet(d, appUrl) {
+  const out = ['🎧 *MixReview* · ' + dateParts(d.until, { weekday: 'short', day: 'numeric', month: 'short' }),
+    '_Everything ' + sinceText(d.since, d.until) + '_',
+    '',
+    '😴 No new updates: no new songs, versions, comments or likes from the band.'];
+  if (appUrl) out.push('', 'Open MixReview → ' + appUrl);
+  return out.join('\n');
+}
+
+/** Returns the WhatsApp text (a short "no new updates" message when nothing happened). */
 export function formatDigest(d, { appUrl, maxEncoded = MAX_ENCODED } = {}) {
-  if (isEmpty(d)) return null;
+  if (isEmpty(d)) return renderQuiet(d, appUrl);
   // Full version first. Only if it's too long: shorten the band list, then leave out the
   // oldest "for you" threads, and as a last resort shorten very long comments.
   const attempts = [{}, { bandMax: 5 }];

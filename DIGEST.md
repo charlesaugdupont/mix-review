@@ -15,7 +15,7 @@ then the oldest "for you" threads are left out with a "…and N more" line.
 
 Each person's digest covers the time since *their* last one. If sending fails, their window
 isn't advanced, so the next digest picks up the missed period. When there's nothing new,
-no message is sent.
+they get a short "No new updates" message.
 
 ## Files
 
