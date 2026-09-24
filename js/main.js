@@ -9,6 +9,7 @@ var likesMap     = {};          // commentId → [{ userId, name, color }]
 var replyLikesMap= {};          // "commentId-ri" → [{ userId, name, color }]
 var readSet      = new Set();   // comment IDs the current user has marked as read
 var unreadCounts = {};          // songId → unread count
+var allProfiles  = [];          // [{ id, name }] everyone who can be @tagged
 
 var audio = document.getElementById('audio');
 var ICON_PLAY  = '<polygon points="6,3 20,12 6,21"/>';
@@ -66,7 +67,7 @@ window.onload = async function() {
   if (session) {
     var ok = await loadProfile(session.user.id);
     if (ok) {
-      await loadAllReads();
+      await Promise.all([loadAllReads(), loadProfiles()]);
       await loadFolders();
       loadSongs();
     }
@@ -91,7 +92,7 @@ async function doLogin() {
   var ok = await loadProfile(res.data.user.id);
   if (!ok) { errEl.textContent = 'Profile not found. Contact Charles.'; return; }
   document.getElementById('login-modal').classList.remove('open');
-  await loadAllReads();
+  await Promise.all([loadAllReads(), loadProfiles()]);
   await loadFolders();
   loadSongs();
 }
@@ -111,6 +112,12 @@ async function loadProfile(uid) {
   av.textContent = getInitials(currentUser.name);
   document.getElementById('user-name').textContent = currentUser.name;
   return true;
+}
+
+// Everyone who can be @tagged (for the name pop-up and highlighting)
+async function loadProfiles() {
+  var res = await sb.from('profiles').select('id, name').order('name');
+  allProfiles = res.data || [];
 }
 
 // Load ALL comment_reads for the current user once at startup
@@ -567,8 +574,8 @@ function renderCard(c) {
           +'</div>'
           +'<span class="reply-date">'+new Date(r.created_at).toLocaleDateString()+'</span>'
         +'</div>'
-        +'<textarea class="reply-edit-input" id="redit-'+c.id+'-'+ri+'">'+escVal(r.text)+'</textarea>'
-        +'<div class="reply-text" id="rtext-'+c.id+'-'+ri+'">'+esc(r.text)+'</div>'
+        +'<textarea class="reply-edit-input" data-mentions id="redit-'+c.id+'-'+ri+'">'+escVal(r.text)+'</textarea>'
+        +'<div class="reply-text" id="rtext-'+c.id+'-'+ri+'">'+renderText(r.text)+'</div>'
         +'<div class="reply-actions">'
           +'<button class="cact-btn'+(rLiked?' liked':'')+(rLikes.length>0?' has-likes':'')+'" onclick="likeReply(\''+c.id+'\','+ri+')" title="'+(rNames||'No likes yet')+'">'+ICON_HEART+(rLikes.length>0?'<b style="font-size:12px;margin-left:1px;">'+rLikes.length+'</b>':'')+'</button>'
           +'<button class="cact-btn" onclick="editReply(\''+c.id+'\','+ri+')">Edit</button>'
@@ -587,8 +594,8 @@ function renderCard(c) {
       +'</div>'
       +'<span class="ctsbadge" onclick="jumpTo('+c.timestamp_sec+')">@'+ft(c.timestamp_sec)+'</span>'
     +'</div>'
-    +'<textarea class="cedit-input" id="cedit-'+c.id+'">'+escVal(c.content)+'</textarea>'
-    +'<div class="ctext" id="ctext-'+c.id+'">'+esc(c.content)+'</div>'
+    +'<textarea class="cedit-input" data-mentions id="cedit-'+c.id+'">'+escVal(c.content)+'</textarea>'
+    +'<div class="ctext" id="ctext-'+c.id+'">'+renderText(c.content)+'</div>'
     +'<div class="cdate">'+new Date(c.created_at).toLocaleDateString()+'</div>'
     +'<div class="cactions">'
       +'<button class="cact-btn'+(liked?' liked':'')+(likes.length>0?' has-likes':'')+'" onclick="toggleLike(\''+c.id+'\')" title="'+(likeNames||'No likes yet')+'">'+ICON_HEART+(likes.length>0?'<b style="font-size:12px;margin-left:1px;">'+likes.length+'</b>':'')+'</button>'
@@ -602,7 +609,7 @@ function renderCard(c) {
     +repliesHtml
     +'<div class="reply-input-wrap" id="replybox-'+c.id+'">'
       +'<div class="reply-input-row">'
-        +'<input type="text" placeholder="Write a reply…" id="rtext-input-'+c.id+'" onkeydown="if(event.key===\'Enter\')submitReply(\''+c.id+'\')" style="flex:1"/>'
+        +'<input type="text" data-mentions placeholder="Write a reply…" id="rtext-input-'+c.id+'" onkeydown="if(event.key===\'Enter\')submitReply(\''+c.id+'\')" style="flex:1"/>'
         +'<button class="btn sm" onclick="submitReply(\''+c.id+'\')">Post</button>'
       +'</div>'
     +'</div>'
@@ -1009,6 +1016,118 @@ async function doUpload() {
     if(curSong&&curSong.id===sid2){var vl3=await fetchVersions(sid2);renderVersionPills(vl3,curVer?curVer.id:vl3[0].id);}
   }
   setTimeout(closeModal,1400);
+}
+
+// ── @MENTIONS ───────────────────────────────────────────────────────────────
+// Typing "@" in any field marked data-mentions opens a list of members.
+// Tags are highlighted in comments, and the WhatsApp digest tells the tagged person.
+var mentionPop = null;
+var mentionState = null;   // { el, start, end, items, idx } while the list is open
+var MENTION_HIDDEN = ['mixup'];   // profiles that aren't real logins: left out of the name list
+
+// Text before the caret ending in "@query" → where the tag starts and what's typed so far
+function mentionQueryAt(el) {
+  var pos = el.selectionStart;
+  if (pos == null || pos !== el.selectionEnd) return null;
+  var m = /(^|[^\w@])@(\w*)$/.exec(el.value.slice(0, pos));
+  if (!m) return null;
+  return { start: pos - m[2].length - 1, end: pos, query: m[2].toLowerCase() };
+}
+
+function updateMentionPop(el) {
+  var q = mentionQueryAt(el);
+  var items = !q ? [] : allProfiles.filter(function(p) {
+    var n = p.name.toLowerCase();
+    return (!currentUser || p.id !== currentUser.id) && MENTION_HIDDEN.indexOf(n) === -1 && n.indexOf(q.query) === 0;
+  });
+  if (!items.length) { closeMentionPop(); return; }
+  var prev = mentionState && mentionState.el === el ? mentionState.items[mentionState.idx] : null;
+  var idx = prev ? Math.max(0, items.indexOf(prev)) : 0;
+  mentionState = { el: el, start: q.start, end: q.end, items: items, idx: idx };
+  renderMentionPop();
+}
+
+function renderMentionPop() {
+  var s = mentionState; if (!s) return;
+  if (!mentionPop) {
+    mentionPop = document.createElement('div');
+    mentionPop.id = 'mention-pop';
+    mentionPop.addEventListener('mousedown', function(e) {
+      var opt = e.target.closest('.mention-opt'); if (!opt || !mentionState) return;
+      e.preventDefault();   // keep focus in the text field
+      mentionState.idx = Number(opt.getAttribute('data-idx'));
+      applyMention();
+    });
+    document.body.appendChild(mentionPop);
+  }
+  mentionPop.innerHTML = s.items.map(function(p, i) {
+    return '<div class="mention-opt'+(i===s.idx?' active':'')+'" data-idx="'+i+'">'
+      +'<span class="mention-av" style="background:'+getAuthorColor(p.name)+'">'+getInitials(p.name)+'</span>'
+      +'<span>'+esc(p.name)+'</span></div>';
+  }).join('');
+  // Anchor under the field, or above it when there's no room (e.g. the mobile composer)
+  var r = s.el.getBoundingClientRect();
+  mentionPop.style.display = 'block';
+  var h = mentionPop.offsetHeight, w = mentionPop.offsetWidth;
+  var top = (r.bottom + 4 + h <= window.innerHeight) ? r.bottom + 4 : r.top - h - 4;
+  mentionPop.style.top  = Math.max(4, top) + 'px';
+  mentionPop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+}
+
+function closeMentionPop() {
+  mentionState = null;
+  if (mentionPop) mentionPop.style.display = 'none';
+}
+
+function applyMention() {
+  var s = mentionState; if (!s) return;
+  var el = s.el, insert = '@' + s.items[s.idx].name + ' ';
+  el.value = el.value.slice(0, s.start) + insert + el.value.slice(s.end);
+  var caret = s.start + insert.length;
+  el.focus();
+  el.setSelectionRange(caret, caret);
+  closeMentionPop();
+  el.dispatchEvent(new Event('input', { bubbles: true }));   // e.g. mobile composer auto-grow
+}
+
+document.addEventListener('input', function(e) {
+  if (e.target.hasAttribute && e.target.hasAttribute('data-mentions')) updateMentionPop(e.target);
+});
+// Capture phase: runs before the field's own handlers, so Enter picks a name instead of posting
+document.addEventListener('keydown', function(e) {
+  var s = mentionState;
+  if (!s || e.target !== s.el) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    s.idx = (s.idx + (e.key === 'ArrowDown' ? 1 : s.items.length - 1)) % s.items.length;
+    renderMentionPop();
+  } else if (e.key === 'Enter' || e.key === 'Tab') {
+    applyMention();
+  } else if (e.key === 'Escape') {
+    closeMentionPop();
+  } else {
+    return;
+  }
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+document.addEventListener('focusout', function(e) {
+  if (mentionState && e.target === mentionState.el) closeMentionPop();
+});
+window.addEventListener('resize', renderMentionPop);
+window.addEventListener('scroll', renderMentionPop, true);
+
+// Escape text for HTML and highlight @Name tags of known members
+function renderText(s) {
+  var html = esc(s);
+  if (!allProfiles.length) return html;
+  var names = allProfiles.map(function(p) { return p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+                         .sort(function(a, b) { return b.length - a.length; });
+  var re = new RegExp('(^|[^\\w@])@(' + names.join('|') + ')(?!\\w)', 'gi');
+  return html.replace(re, function(m, pre, name) {
+    var p = allProfiles.find(function(x) { return x.name.toLowerCase() === name.toLowerCase(); });
+    var me = currentUser && p.id === currentUser.id;
+    return pre + '<span class="mention' + (me ? ' mention-me' : '') + '" style="color:' + getAuthorColor(p.name) + '">@' + esc(p.name) + '</span>';
+  });
 }
 
 // ── UTILS ────────────────────────────────────────────────────────────────────

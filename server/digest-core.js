@@ -71,6 +71,24 @@ export function buildDigest(p) {
     .map(([sid, n]) => ({ song: songTitle(sid), ...n, total: n.comments + n.replies }))
     .sort((a, b) => b.total - a.total || a.song.localeCompare(b.song));
 
+  // ── Personal: @tags of me in new comments / replies ─────────────────────
+  const escRe = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tagRe = new RegExp('(^|[^\\w@])@' + escRe(String(user.name || '').trim()) + '(?!\\w)', 'i');
+  const tagsMe = (text) => !!me && tagRe.test(String(text || ''));
+  const mentions = [];
+  for (const c of p.comments) {
+    const song = songTitle(songIdOf(c));
+    if (inWindow(c.created_at) && !isMe(c.author) && tagsMe(c.content)) {
+      mentions.push({ kind: 'comment', author: c.author, song, at: c.timestamp_sec, text: c.content, when: ts(c.created_at) });
+    }
+    for (const r of parseReplies(c.replies)) {
+      if (inWindow(r.created_at) && !isMe(r.author) && tagsMe(r.text)) {
+        mentions.push({ kind: 'reply', author: r.author, song, at: c.timestamp_sec, text: r.text, when: ts(r.created_at) });
+      }
+    }
+  }
+  mentions.sort((a, b) => b.when - a.when);
+
   // ── Personal: likes on my comments / replies ─────────────────────────────
   const likeGroups = new Map(); // key → { kind, song, at, text, likers:Set }
   const addLike = (key, base, likerId) => {
@@ -98,11 +116,14 @@ export function buildDigest(p) {
   for (const c of p.comments) {
     const replies = parseReplies(c.replies);
     const mine = isMe(c.author);
-    const myReplies = replies.filter((r) => isMe(r.author));
-    if (!mine && !myReplies.length) continue;
-    // Only replies that came after I joined the thread (replies without a timestamp count as old).
-    const joinedAt = mine ? -Infinity : Math.min(...myReplies.map((r) => ts(r.created_at) || -Infinity));
-    const fresh = replies.filter((r) => inWindow(r.created_at) && !isMe(r.author) && ts(r.created_at) > joinedAt);
+    // I'm in a thread if I started it, replied in it, or was @tagged in it.
+    const joins = replies.filter((r) => isMe(r.author) || tagsMe(r.text)).map((r) => ts(r.created_at) || -Infinity);
+    if (tagsMe(c.content)) joins.push(ts(c.created_at) || -Infinity);
+    if (!mine && !joins.length) continue;
+    // Only replies that came after I joined (no timestamp = old). Replies that tag me are
+    // already listed under mentions, so they're left out here.
+    const joinedAt = mine ? -Infinity : Math.min(...joins);
+    const fresh = replies.filter((r) => inWindow(r.created_at) && !isMe(r.author) && !tagsMe(r.text) && ts(r.created_at) > joinedAt);
     if (!fresh.length) continue;
     threads.push({
       song: songTitle(songIdOf(c)),
@@ -115,11 +136,11 @@ export function buildDigest(p) {
   }
   threads.sort((a, b) => b.latest - a.latest);
 
-  return { user, since, until, newSongs: newSongs.map((s) => s.title), newVersions, commentActivity, likes, threads };
+  return { user, since, until, newSongs: newSongs.map((s) => s.title), newVersions, commentActivity, mentions, likes, threads };
 }
 
 export function isEmpty(d) {
-  return !d.newSongs.length && !d.newVersions.length && !d.commentActivity.length && !d.likes.length && !d.threads.length;
+  return !d.newSongs.length && !d.newVersions.length && !d.commentActivity.length && !d.mentions.length && !d.likes.length && !d.threads.length;
 }
 
 // ── Formatting ─────────────────────────────────────────────────────────────
@@ -177,13 +198,15 @@ export function formatDigest(d, { appUrl } = {}) {
     }));
   }
 
-  if (d.likes.length || d.threads.length) {
+  if (d.mentions.length || d.likes.length || d.threads.length) {
     out.push('', '*For you, ' + d.user.name + '*');
+    out.push(...capped(d.mentions, MAX_PERSONAL, (m) =>
+      '📣 ' + m.author + ' tagged you ' + (m.kind === 'reply' ? 'in a reply ' : '') + 'on ' + m.song + ' (' + ft(m.at) + '): "' + snippet(m.text, 80) + '"'));
     out.push(...capped(d.likes, MAX_PERSONAL, (l) =>
       '❤️ ' + joinNames(l.likers) + ' liked your ' + l.kind + ' on ' + l.song + ' (' + ft(l.at) + '): "' + snippet(l.text, 50) + '"'));
     out.push(...capped(d.threads, MAX_PERSONAL, (t) => {
       const n = t.replies.length;
-      const where = t.mine ? 'your comment' : 'a thread you replied to';
+      const where = t.mine ? 'your comment' : "a thread you're in";
       const head = '💬 ' + plural(n, 'new reply', 'new replies') + ' on ' + where + ' on ' + t.song + ' (' + ft(t.at) + ')';
       const shown = t.replies.slice(-2).map((r) => '    ↳ ' + r.author + ': "' + snippet(r.text, 60) + '"');
       return [head, ...shown].join('\n');
