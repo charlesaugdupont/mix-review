@@ -5,8 +5,9 @@ subscriber a WhatsApp message via [CallMeBot](https://www.callmebot.com/blog/fre
 
 - **For everyone:** new songs, new versions, and new comments/replies per song
   (your own comments and replies aren't counted).
-- **For you:** who liked your comments/replies, and new replies on your comments or in
-  threads you replied to (only replies posted after you joined the thread).
+- **For you:** comments and replies that @tag you, who liked your comments/replies, and new
+  replies on your comments or in threads you replied to or were tagged in (only replies posted
+  after you joined the thread). Tags added by editing an older comment aren't picked up.
 
 Each person's digest covers the time since *their* last one. If sending fails, their window
 isn't advanced, so the next digest picks up the missed period. When there's nothing new,
