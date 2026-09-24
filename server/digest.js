@@ -49,9 +49,11 @@ export async function sendWhatsApp(phone, apikey, text) {
     + '&apikey=' + encodeURIComponent(apikey);
   const res = await fetch(url);
   const body = (await res.text()).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  // CallMeBot answers "Message queued..." on success and a plain-text error otherwise.
-  if (!res.ok || !/queued|sent/i.test(body)) {
-    throw new Error('CallMeBot ' + res.status + ': ' + body.slice(0, 200));
+  // CallMeBot echoes the phone number and message text back, then says "Message queued" on
+  // success or explains the problem (e.g. "Message not sent", invalid API key) otherwise.
+  // The error keeps the end of the reply, where the reason is.
+  if (!res.ok || /not sent/i.test(body) || !/queued|sent/i.test(body)) {
+    throw new Error('CallMeBot ' + res.status + ': …' + body.slice(-300));
   }
 }
 
