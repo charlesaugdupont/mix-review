@@ -1,0 +1,8 @@
+# Server-side / repo files that shouldn't be served as static assets
+worker.js
+wrangler.jsonc
+server
+supabase
+DIGEST.md
+.wrangler
+.git

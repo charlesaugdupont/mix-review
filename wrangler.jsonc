@@ -11,5 +11,17 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
-  ]
+  ],
+  // WhatsApp digest: 09:00 Amsterdam on Mon/Wed/Fri. Both UTC hours are listed so it
+  // works in summer (UTC+2) and winter (UTC+1); worker.js ignores the one that isn't 09:00.
+  "triggers": {
+    "crons": ["0 7,8 * * MON,WED,FRI"]
+  },
+  "vars": {
+    "SUPABASE_URL": "https://nxmodpianwotdvpixjqp.supabase.co",
+    "APP_URL": ""
+  }
+  // Secrets (set with `npx wrangler secret put <NAME>`):
+  //   SUPABASE_SERVICE_KEY  – Supabase secret/service_role key (bypasses RLS; server-side only)
+  //   DIGEST_ADMIN_TOKEN    – any long random string; protects /api/digest
 }
