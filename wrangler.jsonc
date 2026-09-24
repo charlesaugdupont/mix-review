@@ -19,7 +19,7 @@
   },
   "vars": {
     "SUPABASE_URL": "https://nxmodpianwotdvpixjqp.supabase.co",
-    "APP_URL": ""
+    "APP_URL": "https://mix-review.charlesdupont1997.workers.dev/"
   }
   // Secrets (set with `npx wrangler secret put <NAME>`):
   //   SUPABASE_SERVICE_KEY  – Supabase secret/service_role key (bypasses RLS; server-side only)

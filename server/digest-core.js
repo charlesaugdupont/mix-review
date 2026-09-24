@@ -2,9 +2,9 @@
 // work out what happened and turn it into a WhatsApp message for one user.
 
 const TZ = 'Europe/Amsterdam';
-const MAX_SONGS = 8;      // songs listed under "New comments"
-const MAX_PERSONAL = 6;   // items per personal section
-const MAX_LIST = 6;       // new songs / new versions listed
+// CallMeBot takes the message in the URL; web servers commonly reject URLs over ~8 KB.
+// Keep the URL-encoded text under this, trimming the digest only when it would go over.
+export const MAX_ENCODED = 6000;
 
 export function parseReplies(raw) {
   try {
@@ -71,76 +71,77 @@ export function buildDigest(p) {
     .map(([sid, n]) => ({ song: songTitle(sid), ...n, total: n.comments + n.replies }))
     .sort((a, b) => b.total - a.total || a.song.localeCompare(b.song));
 
-  // ── Personal: @tags of me in new comments / replies ─────────────────────
+  // ── Personal: everything that concerns me, grouped per comment thread ───
   const escRe = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const tagRe = new RegExp('(^|[^\\w@])@' + escRe(String(user.name || '').trim()) + '(?!\\w)', 'i');
   const tagsMe = (text) => !!me && tagRe.test(String(text || ''));
-  const mentions = [];
-  for (const c of p.comments) {
-    const song = songTitle(songIdOf(c));
-    if (inWindow(c.created_at) && !isMe(c.author) && tagsMe(c.content)) {
-      mentions.push({ kind: 'comment', author: c.author, song, at: c.timestamp_sec, text: c.content, when: ts(c.created_at) });
+
+  const groups = new Map(); // comment id → { song, at, author, text, mine, events: [] }
+  const groupFor = (c) => {
+    if (!groups.has(c.id)) {
+      groups.set(c.id, { song: songTitle(songIdOf(c)), at: c.timestamp_sec, author: c.author, text: c.content, mine: isMe(c.author), events: [] });
     }
-    for (const r of parseReplies(c.replies)) {
-      if (inWindow(r.created_at) && !isMe(r.author) && tagsMe(r.text)) {
-        mentions.push({ kind: 'reply', author: r.author, song, at: c.timestamp_sec, text: r.text, when: ts(r.created_at) });
-      }
+    return groups.get(c.id);
+  };
+
+  for (const c of p.comments) {
+    const replies = parseReplies(c.replies);
+    const mine = isMe(c.author);
+    // Tagged in a new comment
+    if (inWindow(c.created_at) && !mine && tagsMe(c.content)) {
+      groupFor(c).events.push({ type: 'tag', who: c.author, when: ts(c.created_at) });
+    }
+    // I'm in a thread if I started it, replied in it, or was @tagged in it. Only replies
+    // after I joined count (no timestamp = old).
+    const joins = replies.filter((r) => isMe(r.author) || tagsMe(r.text)).map((r) => ts(r.created_at) || -Infinity);
+    if (tagsMe(c.content)) joins.push(ts(c.created_at) || -Infinity);
+    const involved = mine || joins.length > 0;
+    const joinedAt = mine ? -Infinity : Math.min(...joins);
+    for (const r of replies) {
+      if (!inWindow(r.created_at) || isMe(r.author)) continue;
+      const when = ts(r.created_at);
+      if (tagsMe(r.text)) groupFor(c).events.push({ type: 'tag-reply', who: r.author, text: r.text, when });
+      else if (involved && when > joinedAt) groupFor(c).events.push({ type: 'reply', who: r.author, text: r.text, when });
     }
   }
-  mentions.sort((a, b) => b.when - a.when);
 
-  // ── Personal: likes on my comments / replies ─────────────────────────────
-  const likeGroups = new Map(); // key → { kind, song, at, text, likers:Set }
-  const addLike = (key, base, likerId) => {
-    if (!likeGroups.has(key)) likeGroups.set(key, { ...base, likers: new Set() });
-    likeGroups.get(key).likers.add(nameOf(likerId));
+  // Likes on my comments and replies (several likers of the same item → one line)
+  const addLike = (c, target, idx, text, l) => {
+    const g = groupFor(c);
+    let ev = g.events.find((e) => e.type === 'like' && e.target === target && e.idx === idx);
+    if (!ev) { ev = { type: 'like', target, idx, text, likers: [], when: -Infinity }; g.events.push(ev); }
+    const name = nameOf(l.user_id);
+    if (!ev.likers.includes(name)) ev.likers.push(name);
+    ev.when = Math.max(ev.when, ts(l.created_at));
   };
   for (const l of p.commentLikes) {
     if (!inWindow(l.created_at) || l.user_id === user.id) continue;
     const c = commentsById.get(l.comment_id);
-    if (!c || !isMe(c.author)) continue;
-    addLike('c:' + c.id, { kind: 'comment', song: songTitle(songIdOf(c)), at: c.timestamp_sec, text: c.content }, l.user_id);
+    if (c && isMe(c.author)) addLike(c, 'comment', null, null, l);
   }
   for (const l of p.replyLikes) {
     if (!inWindow(l.created_at) || l.user_id === user.id) continue;
     const c = commentsById.get(l.comment_id);
-    if (!c) continue;
-    const r = parseReplies(c.replies)[l.reply_index];
-    if (!r || !isMe(r.author)) continue;
-    addLike('r:' + c.id + ':' + l.reply_index, { kind: 'reply', song: songTitle(songIdOf(c)), at: c.timestamp_sec, text: r.text }, l.user_id);
+    const r = c && parseReplies(c.replies)[l.reply_index];
+    if (r && isMe(r.author)) addLike(c, 'reply', l.reply_index, r.text, l);
   }
-  const likes = [...likeGroups.values()].map((g) => ({ ...g, likers: [...g.likers] }));
 
-  // ── Personal: new replies in threads I'm part of ─────────────────────────
-  const threads = [];
-  for (const c of p.comments) {
-    const replies = parseReplies(c.replies);
-    const mine = isMe(c.author);
-    // I'm in a thread if I started it, replied in it, or was @tagged in it.
-    const joins = replies.filter((r) => isMe(r.author) || tagsMe(r.text)).map((r) => ts(r.created_at) || -Infinity);
-    if (tagsMe(c.content)) joins.push(ts(c.created_at) || -Infinity);
-    if (!mine && !joins.length) continue;
-    // Only replies that came after I joined (no timestamp = old). Replies that tag me are
-    // already listed under mentions, so they're left out here.
-    const joinedAt = mine ? -Infinity : Math.min(...joins);
-    const fresh = replies.filter((r) => inWindow(r.created_at) && !isMe(r.author) && !tagsMe(r.text) && ts(r.created_at) > joinedAt);
-    if (!fresh.length) continue;
-    threads.push({
-      song: songTitle(songIdOf(c)),
-      at: c.timestamp_sec,
-      mine,
-      text: c.content,
-      replies: fresh.map((r) => ({ author: r.author, text: r.text })),
-      latest: Math.max(...fresh.map((r) => ts(r.created_at))),
-    });
-  }
-  threads.sort((a, b) => b.latest - a.latest);
+  // Within a thread: tags first, then likes, then replies in the order they were posted.
+  const rank = { tag: 0, like: 1, 'tag-reply': 2, reply: 2 };
+  const personal = [...groups.values()]
+    .filter((g) => g.events.length)
+    .map((g) => ({
+      ...g,
+      events: g.events.sort((a, b) => rank[a.type] - rank[b.type] || a.when - b.when),
+      latest: Math.max(...g.events.map((e) => e.when)),
+    }))
+    .sort((a, b) => b.latest - a.latest);
 
-  return { user, since, until, newSongs: newSongs.map((s) => s.title), newVersions, commentActivity, mentions, likes, threads };
+  return { user, since, until, newSongs: newSongs.map((s) => s.title), newVersions, commentActivity, personal };
 }
 
 export function isEmpty(d) {
-  return !d.newSongs.length && !d.newVersions.length && !d.commentActivity.length && !d.mentions.length && !d.likes.length && !d.threads.length;
+  return !d.newSongs.length && !d.newVersions.length && !d.commentActivity.length && !d.personal.length;
 }
 
 // ── Formatting ─────────────────────────────────────────────────────────────
@@ -151,68 +152,90 @@ export function ft(s) {
   return m + ':' + (sec < 10 ? '0' : '') + sec;
 }
 
-export function snippet(text, n = 60) {
-  const t = String(text || '').replace(/\s+/g, ' ').trim();
-  return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t;
-}
-
 export function joinNames(names) {
   if (names.length <= 1) return names.join('');
   return names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1];
 }
 
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+const DIVIDER = '━━━━━━━━━━━━';
 
-function fmtDate(ms) {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).format(new Date(ms));
+// WhatsApp quote: the whole comment as one paragraph (line breaks joined with spaces).
+// maxLen only kicks in when a message would otherwise be too long.
+export function quote(text, maxLen = Infinity) {
+  let t = String(text || '').replace(/\s+/g, ' ').trim();
+  if (t.length > maxLen) t = t.slice(0, maxLen - 1).trimEnd() + '…';
+  return '> ' + t;
 }
 
-function capped(items, max, render) {
-  const lines = items.slice(0, max).map(render);
-  if (items.length > max) lines.push('…and ' + (items.length - max) + ' more');
-  return lines;
+const dateParts = (ms, opts) => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, ...opts }).format(new Date(ms));
+const dayKey = (ms) => dateParts(ms, { year: 'numeric', month: '2-digit', day: '2-digit' });
+const hhmm = (ms) => dateParts(ms, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
+// "since yesterday 09:00", "since 07:39 today", or "since Wed 23 Sept, 10:41"
+function sinceText(since, until) {
+  if (dayKey(since) === dayKey(until)) return 'since ' + hhmm(since) + ' today';
+  if (dayKey(since) === dayKey(until - 86400000)) return 'since yesterday ' + hhmm(since);
+  return 'since ' + dateParts(since, { weekday: 'short', day: 'numeric', month: 'short' }) + ', ' + hhmm(since);
 }
 
-/** Returns the WhatsApp text, or null when there's nothing to report. */
-export function formatDigest(d, { appUrl } = {}) {
-  if (isEmpty(d)) return null;
-  const out = ['🎧 *MixReview update*', '_Since ' + fmtDate(d.since) + '_'];
+function renderGroup(g, quoteMax) {
+  const whose = g.mine ? 'your comment' : g.author + "'s comment";
+  const out = ['*' + g.song + ' @' + ft(g.at) + '* · ' + whose, quote(g.text, quoteMax)];
+  for (const e of g.events) {
+    if (e.type === 'tag') out.push('📣 *' + e.who + '* tagged you');
+    else if (e.type === 'like' && e.target === 'comment') out.push('❤️ *' + joinNames(e.likers) + '* liked it');
+    else if (e.type === 'like') out.push('❤️ *' + joinNames(e.likers) + '* liked your reply:', quote(e.text, quoteMax));
+    else if (e.type === 'tag-reply') out.push('📣 *' + e.who + '* tagged you in a reply:', quote(e.text, quoteMax));
+    else out.push('💬 *' + e.who + '* replied:', quote(e.text, quoteMax));
+  }
+  return out.join('\n');
+}
 
-  if (d.newSongs.length) {
-    out.push('', '*New songs (' + d.newSongs.length + ')*');
-    out.push(...capped(d.newSongs, MAX_LIST, (t) => '• ' + t));
+function render(d, appUrl, { bandMax = Infinity, groupsMax = Infinity, quoteMax = Infinity } = {}) {
+  const out = ['🎧 *MixReview* · ' + dateParts(d.until, { weekday: 'short', day: 'numeric', month: 'short' }),
+    '_Everything ' + sinceText(d.since, d.until) + '_'];
+
+  if (d.personal.length) {
+    const shown = d.personal.slice(0, groupsMax);
+    out.push('', DIVIDER, '👤 *FOR YOU*');
+    for (const g of shown) out.push('', renderGroup(g, quoteMax));
+    const hidden = d.personal.length - shown.length;
+    if (hidden > 0) out.push('', '_…and ' + hidden + ' more for you in MixReview_');
   }
-  if (d.newVersions.length) {
-    out.push('', '*New versions (' + d.newVersions.length + ')*');
-    out.push(...capped(d.newVersions, MAX_LIST, (v) => '• ' + v.song + ' — ' + v.label));
-  }
-  if (d.commentActivity.length) {
-    out.push('', '*New comments*');
-    out.push(...capped(d.commentActivity, MAX_SONGS, (a) => {
+
+  const band = [
+    ...d.newSongs.map((t) => '🆕 New song: *' + t + '*'),
+    ...d.newVersions.map((v) => '🆕 New version: *' + v.song + '* · ' + v.label),
+    ...d.commentActivity.map((a) => {
       const parts = [];
       if (a.comments) parts.push(plural(a.comments, 'comment', 'comments'));
       if (a.replies) parts.push(plural(a.replies, 'reply', 'replies'));
-      return '• ' + a.song + ': ' + parts.join(', ');
-    }));
+      return '• *' + a.song + '*: ' + parts.join(', ');
+    }),
+  ];
+  if (band.length) {
+    out.push('', DIVIDER, '🎚️ *BAND ACTIVITY*');
+    out.push(...band.slice(0, bandMax));
+    if (band.length > bandMax) out.push('_…and ' + (band.length - bandMax) + ' more_');
   }
 
-  if (d.mentions.length || d.likes.length || d.threads.length) {
-    out.push('', '*For you, ' + d.user.name + '*');
-    out.push(...capped(d.mentions, MAX_PERSONAL, (m) =>
-      '📣 ' + m.author + ' tagged you ' + (m.kind === 'reply' ? 'in a reply ' : '') + 'on ' + m.song + ' (' + ft(m.at) + '): "' + snippet(m.text, 80) + '"'));
-    out.push(...capped(d.likes, MAX_PERSONAL, (l) =>
-      '❤️ ' + joinNames(l.likers) + ' liked your ' + l.kind + ' on ' + l.song + ' (' + ft(l.at) + '): "' + snippet(l.text, 50) + '"'));
-    out.push(...capped(d.threads, MAX_PERSONAL, (t) => {
-      const n = t.replies.length;
-      const where = t.mine ? 'your comment' : "a thread you're in";
-      const head = '💬 ' + plural(n, 'new reply', 'new replies') + ' on ' + where + ' on ' + t.song + ' (' + ft(t.at) + ')';
-      const shown = t.replies.slice(-2).map((r) => '    ↳ ' + r.author + ': "' + snippet(r.text, 60) + '"');
-      return [head, ...shown].join('\n');
-    }));
-  }
-
-  if (appUrl) out.push('', appUrl);
+  if (appUrl) out.push('', 'Open MixReview → ' + appUrl);
   return out.join('\n');
+}
+
+/** Returns the WhatsApp text, or null when there's nothing to report. */
+export function formatDigest(d, { appUrl, maxEncoded = MAX_ENCODED } = {}) {
+  if (isEmpty(d)) return null;
+  // Full version first. Only if it's too long: shorten the band list, then leave out the
+  // oldest "for you" threads, and as a last resort shorten very long comments.
+  const attempts = [{}, { bandMax: 5 }];
+  for (let n = d.personal.length - 1; n >= 1; n--) attempts.push({ bandMax: 5, groupsMax: n });
+  attempts.push({ bandMax: 5, groupsMax: 1, quoteMax: 600 }, { bandMax: 3, groupsMax: 1, quoteMax: 200 });
+  let text = '';
+  for (const a of attempts) {
+    text = render(d, appUrl, a);
+    if (encodeURIComponent(text).length <= maxEncoded) break;
+  }
+  return text;
 }
