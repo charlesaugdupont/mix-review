@@ -56,7 +56,7 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  // WhatsApp digest. Cron fires at 07:00 and 08:00 UTC on Mon/Wed/Fri; only the
+  // WhatsApp digest. Cron fires daily at 07:00 and 08:00 UTC; only the
   // run that lands on 09:00 Amsterdam time proceeds, so it follows summer/winter time.
   async scheduled(controller, env, ctx) {
     if (amsterdamHour(new Date(controller.scheduledTime)) !== 9) return;

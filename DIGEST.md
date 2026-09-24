@@ -1,6 +1,6 @@
 # WhatsApp digest
 
-Every **Monday, Wednesday and Friday at 09:00 (Amsterdam time)** the Worker sends each
+Every **day at 09:00 (Amsterdam time)** the Worker sends each
 subscriber a WhatsApp message via [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/) with:
 
 - **For everyone:** new songs, new versions, and new comments/replies per song
@@ -20,7 +20,7 @@ no message is sent.
 | `server/digest-core.js` | Works out the activity and formats the message (no network code) |
 | `server/digest.js` | Reads Supabase with the service key, sends via CallMeBot, saves `last_digest_at` |
 | `worker.js` | `scheduled()` cron handler + `/api/digest` preview/send endpoint |
-| `wrangler.jsonc` | Cron trigger `0 7,8 * * MON,WED,FRI` (UTC). The handler only runs the one that is 09:00 in Amsterdam, so it keeps working across summer and winter time |
+| `wrangler.jsonc` | Cron trigger `0 7,8 * * *` (UTC). The handler only runs the one that is 09:00 in Amsterdam, so it keeps working across summer and winter time |
 | `supabase/migrations/20260923_whatsapp_digest.sql` | Adds like timestamps and the `digest_subscribers` table |
 | `.assetsignore` | Stops server files from being served as static assets |
 
