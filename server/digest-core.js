@@ -180,14 +180,14 @@ function sinceText(since, until) {
 }
 
 function renderGroup(g, quoteMax) {
-  const whose = g.mine ? 'your comment' : g.author + "'s comment";
+  const whose = g.mine ? 'thread you started' : g.author + "'s thread";
   const out = ['*' + g.song + ' @' + ft(g.at) + '* · ' + whose, quote(g.text, quoteMax)];
   for (const e of g.events) {
     if (e.type === 'tag') out.push('📣 *' + e.who + '* tagged you');
     else if (e.type === 'like' && e.target === 'comment') out.push('❤️ *' + joinNames(e.likers) + '* liked it');
-    else if (e.type === 'like') out.push('❤️ *' + joinNames(e.likers) + '* liked your reply:', quote(e.text, quoteMax));
-    else if (e.type === 'tag-reply') out.push('📣 *' + e.who + '* tagged you in a reply:', quote(e.text, quoteMax));
-    else out.push('💬 *' + e.who + '* replied:', quote(e.text, quoteMax));
+    else if (e.type === 'like') out.push('❤️ *' + joinNames(e.likers) + '* liked your reply in this thread:', quote(e.text, quoteMax));
+    else if (e.type === 'tag-reply') out.push('📣 *' + e.who + '* tagged you in a reply in this thread:', quote(e.text, quoteMax));
+    else out.push('💬 *' + e.who + '* replied in this thread:', quote(e.text, quoteMax));
   }
   return out.join('\n');
 }
