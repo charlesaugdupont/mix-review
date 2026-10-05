@@ -9,9 +9,12 @@ subscriber a WhatsApp message via [CallMeBot](https://www.callmebot.com/blog/fre
   replies on your comments or in threads you replied to or were tagged in (only replies posted
   after you joined the thread). Tags added by editing an older comment aren't picked up.
 
-Comments are shown in full as WhatsApp quotes, grouped per thread. If a very busy day would make
-the message too long for CallMeBot (it's sent inside a URL), the band list is shortened first,
-then the oldest "for you" threads are left out with a "…and N more" line.
+Comments are shown in full as WhatsApp quotes, grouped per thread. CallMeBot silently cuts
+messages off at roughly 730 characters, so a long digest is sent as several messages of at most
+600 characters ("1/3", "2/3", …), 4 seconds apart. A thread that doesn't fit is continued in the
+next message under its heading. At most 5 messages per person per day: beyond that the band
+list is shortened and the oldest "for you" threads are left out with a "…and N more" line.
+Straight quotes (' and ") are sent as curly ones (’ “ ”), because CallMeBot drops apostrophes.
 
 Each person's digest covers the time since *their* last one. If sending fails, their window
 isn't advanced, so the next digest picks up the missed period. When there's nothing new,

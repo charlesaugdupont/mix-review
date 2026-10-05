@@ -4,7 +4,7 @@ import { buildDigest, formatDigest } from './digest-core.js';
 const HOUR = 3600 * 1000;
 const FIRST_DIGEST_LOOKBACK = 24 * HOUR; // window for a subscriber's very first digest
 const RESEND_GUARD = 2 * HOUR;           // cron never sends to the same person twice within this
-const SEND_GAP_MS = 2000;                // pause between CallMeBot calls
+const SEND_GAP_MS = 4000;                // pause between CallMeBot calls (keeps split digests in order)
 
 // ── Supabase REST helpers ──────────────────────────────────────────────────
 function sbHeaders(env) {
@@ -107,19 +107,21 @@ export async function runDigest(env, opts = {}) {
       }
       const since = sinceOf(sub);
       const digest = buildDigest({ user, since, until: now, songs, versions, comments, commentLikes, replyLikes, profiles });
-      const text = formatDigest(digest, { appUrl: env.APP_URL });
+      const messages = formatDigest(digest, { appUrl: env.APP_URL });
       r.since = new Date(since).toISOString();
-      r.text = text;
+      r.messages = messages;
 
-      if (opts.dryRun) { r.status = text ? 'preview' : 'nothing new'; continue; }
-      if (text) {
+      if (opts.dryRun) { r.status = 'preview'; continue; }
+      for (let i = 0; i < messages.length; i++) {
         if (sentAny) await sleep(SEND_GAP_MS);
-        await sendWhatsApp(sub.phone, sub.callmebot_apikey, text);
+        try {
+          await sendWhatsApp(sub.phone, sub.callmebot_apikey, messages[i]);
+        } catch (e) {
+          throw new Error((messages.length > 1 ? 'message ' + (i + 1) + '/' + messages.length + ': ' : '') + e.message);
+        }
         sentAny = true;
-        r.status = 'sent';
-      } else {
-        r.status = 'nothing new';
       }
+      r.status = messages.length > 1 ? 'sent (' + messages.length + ' messages)' : 'sent';
       await sbUpdate(env, 'digest_subscribers', 'user_id=eq.' + sub.user_id, { last_digest_at: nowIso, last_error: null });
     } catch (e) {
       r.status = 'error';

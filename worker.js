@@ -62,7 +62,7 @@ export default {
     if (amsterdamHour(new Date(controller.scheduledTime)) !== 9) return;
     ctx.waitUntil(
       runDigest(env, { fromCron: true })
-        .then((r) => console.log('digest', JSON.stringify(r.results.map(({ text, ...rest }) => rest))))
+        .then((r) => console.log('digest', JSON.stringify(r.results.map(({ messages, ...rest }) => rest))))
         .catch((e) => console.error('digest failed', e))
     );
   },
