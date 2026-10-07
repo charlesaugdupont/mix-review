@@ -203,6 +203,10 @@ body {
   border-radius: 10px;
   flex-shrink: 0;
   line-height: 1.4;
+  /* Same width for every 1–2 digit count, so the badges line up in one column */
+  min-width: 24px;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 /* ── FOLDERS ── */
@@ -211,7 +215,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 8px 8px 6px;
+  padding: 8px 10px 8px 6px;   /* right padding matches .sitem so badges share one column */
   border-radius: var(--radius-sm);
   cursor: pointer;
   user-select: none;
