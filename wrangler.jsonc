@@ -12,7 +12,7 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  // WhatsApp digest: every day at 09:00 Amsterdam. Both UTC hours are listed so it
+  // Email digest: every day at 09:00 Amsterdam. Both UTC hours are listed so it
   // works in summer (UTC+2) and winter (UTC+1); worker.js ignores the one that isn't 09:00.
   "triggers": {
     "crons": ["0 7,8 * * *"]
@@ -24,4 +24,6 @@
   // Secrets (set with `npx wrangler secret put <NAME>`):
   //   SUPABASE_SERVICE_KEY  – Supabase secret/service_role key (bypasses RLS; server-side only)
   //   DIGEST_ADMIN_TOKEN    – any long random string; protects /api/digest
+  //   BREVO_API_KEY         – Brevo API key (SMTP & API → API keys)
+  //   DIGEST_FROM_EMAIL     – sender address, verified in Brevo (Senders)
 }

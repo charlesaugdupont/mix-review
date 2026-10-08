@@ -56,13 +56,13 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  // WhatsApp digest. Cron fires daily at 07:00 and 08:00 UTC; only the
+  // Email digest. Cron fires daily at 07:00 and 08:00 UTC; only the
   // run that lands on 09:00 Amsterdam time proceeds, so it follows summer/winter time.
   async scheduled(controller, env, ctx) {
     if (amsterdamHour(new Date(controller.scheduledTime)) !== 9) return;
     ctx.waitUntil(
       runDigest(env, { fromCron: true })
-        .then((r) => console.log('digest', JSON.stringify(r.results.map(({ messages, ...rest }) => rest))))
+        .then((r) => console.log('digest', JSON.stringify(r.results.map(({ text, html, ...rest }) => rest))))
         .catch((e) => console.error('digest failed', e))
     );
   },
@@ -76,6 +76,7 @@ function amsterdamHour(date) {
 //   GET  /api/digest                 dry run: returns each person's message, sends nothing
 //   GET  /api/digest?hours=72        dry run over the last 72 hours instead of since the last digest
 //   GET  /api/digest?user=<uuid>     only one person
+//   GET  /api/digest?user=<uuid>&view=html   that person's email as a web page
 //   POST /api/digest                 send now (same params), and advance everyone's window
 async function handleDigestRequest(request, url, env) {
   const token = env.DIGEST_ADMIN_TOKEN;
@@ -92,6 +93,12 @@ async function handleDigestRequest(request, url, env) {
       since: hours > 0 ? Date.now() - hours * 3600 * 1000 : undefined,
       userId: url.searchParams.get('user') || undefined,
     });
+    if (url.searchParams.get('view') === 'html') {
+      const first = result.results.find((r) => r.html);
+      return new Response(first ? first.html : 'No digest for this person', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+    // Keep the JSON readable: subject + plain text, not the HTML.
+    result.results.forEach((r) => { delete r.html; });
     return Response.json(result);
   } catch (e) {
     return Response.json({ error: String(e && e.message || e) }, { status: 500 });

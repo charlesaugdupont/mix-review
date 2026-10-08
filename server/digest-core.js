@@ -1,13 +1,7 @@
 // Pure digest logic: no network, no env. Given the raw rows and a time window,
-// work out what happened and turn it into a WhatsApp message for one user.
+// work out what happened and turn it into an email (subject, HTML and plain text) for one user.
 
 const TZ = 'Europe/Amsterdam';
-// CallMeBot silently cuts WhatsApp messages off at roughly 730 characters (seen in practice,
-// not documented). Long digests are therefore sent as several messages of at most MAX_CHARS
-// characters each (label included), and at most MAX_PARTS messages per person per day.
-export const MAX_CHARS = 600;
-export const MAX_PARTS = 5;
-
 export function parseReplies(raw) {
   try {
     const r = typeof raw === 'string' ? JSON.parse(raw || '[]') : (raw || []);
@@ -160,177 +154,124 @@ export function joinNames(names) {
 }
 
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
-const DIVIDER = '━━━━━━━━━━━━';
+const oneLine = (t) => String(t || '').replace(/\s+/g, ' ').trim();   // comments as one paragraph
 
-// WhatsApp quote: the whole comment as one paragraph (line breaks joined with spaces).
-// maxLen only kicks in when a message would otherwise be too long.
-export function quote(text, maxLen = Infinity) {
-  let t = String(text || '').replace(/\s+/g, ' ').trim();
-  if (t.length > maxLen) t = t.slice(0, maxLen - 1).trimEnd() + '…';
-  return '> ' + t;
+const formatters = new Map();
+function dateParts(ms, opts) {
+  const key = JSON.stringify(opts);
+  if (!formatters.has(key)) formatters.set(key, new Intl.DateTimeFormat('en-GB', { timeZone: TZ, ...opts }));
+  return formatters.get(key).format(new Date(ms));
 }
-
-const dateParts = (ms, opts) => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, ...opts }).format(new Date(ms));
 const dayKey = (ms) => dateParts(ms, { year: 'numeric', month: '2-digit', day: '2-digit' });
 const hhmm = (ms) => dateParts(ms, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const dayLabel = (ms) => dateParts(ms, { weekday: 'short', day: 'numeric', month: 'short' });
 
 // "since yesterday 09:00", "since 07:39 today", or "since Wed 23 Sept, 10:41"
 function sinceText(since, until) {
   if (dayKey(since) === dayKey(until)) return 'since ' + hhmm(since) + ' today';
   if (dayKey(since) === dayKey(until - 86400000)) return 'since yesterday ' + hhmm(since);
-  return 'since ' + dateParts(since, { weekday: 'short', day: 'numeric', month: 'short' }) + ', ' + hhmm(since);
+  return 'since ' + dayLabel(since) + ', ' + hhmm(since);
 }
 
-// A thread as blocks: [heading + opening comment, then one block per event]. An event's
-// "X replied:" line and its quote stay in the same block so they're never split apart.
-function renderGroup(g) {
-  const whose = g.mine ? 'thread you started' : g.author + "'s thread";
-  const blocks = ['*' + g.song + ' @' + ft(g.at) + '* · ' + whose + '\n' + quote(g.text)];
-  for (const e of g.events) {
-    if (e.type === 'tag') blocks.push('📣 *' + e.who + '* tagged you');
-    else if (e.type === 'like' && e.target === 'comment') blocks.push('❤️ *' + joinNames(e.likers) + '* liked it');
-    else if (e.type === 'like') blocks.push('❤️ *' + joinNames(e.likers) + '* liked your reply in this thread:\n' + quote(e.text));
-    else if (e.type === 'tag-reply') blocks.push('📣 *' + e.who + '* tagged you in a reply in this thread:\n' + quote(e.text));
-    else blocks.push('💬 *' + e.who + '* replied in this thread:\n' + quote(e.text));
-  }
-  return blocks;
+// One thread as a list of { line, quote? }: the heading's details are added by the caller.
+function threadEvents(g) {
+  return g.events.map((e) => {
+    if (e.type === 'tag') return { who: e.who, action: 'tagged you', icon: '📣' };
+    if (e.type === 'like' && e.target === 'comment') return { who: joinNames(e.likers), action: 'liked it', icon: '❤️' };
+    if (e.type === 'like') return { who: joinNames(e.likers), action: 'liked your reply in this thread:', icon: '❤️', quote: e.text };
+    if (e.type === 'tag-reply') return { who: e.who, action: 'tagged you in a reply in this thread:', icon: '📣', quote: e.text };
+    return { who: e.who, action: 'replied in this thread:', icon: '💬', quote: e.text };
+  });
 }
 
-// Characters as people see them (an emoji counts as one).
-const len = (s) => [...s].length;
-
-// CallMeBot drops straight apostrophes ("I'm" arrives as "Im"), so use curly ones; same for
-// double quotes to be safe. They look the same in WhatsApp.
-export function typographic(s) {
-  return s.replace(/'/g, '’').replace(/(^|[\s(\[{>])"/g, '$1“').replace(/"/g, '”');
-}
-
-// The digest as a list of pieces, kept whole where possible:
-//   sep    goes in front of the piece when it follows something in the same message
-//   blocks the piece's parts, joined by line breaks
-//   lead   put at the top of a new message when the piece has to start one
-//   cont   put at the top of a new message when the piece itself is split over two
-function pieces(d, appUrl, { bandMax = Infinity, groupsMax = Infinity } = {}) {
-  const out = [{ sep: '', blocks: ['_Everything ' + sinceText(d.since, d.until) + '_'] }];
-
-  if (d.personal.length) {
-    const shown = d.personal.slice(0, groupsMax);
-    shown.forEach((g, i) => {
-      const blocks = renderGroup(g);
-      if (i === 0) blocks[0] = DIVIDER + '\n👤 *FOR YOU*\n\n' + blocks[0];
-      out.push({ sep: '\n\n', blocks, cont: '*' + g.song + ' @' + ft(g.at) + '* · _continued_' });
-    });
-    const hidden = d.personal.length - shown.length;
-    if (hidden > 0) out.push({ sep: '\n\n', blocks: ['_…and ' + hidden + ' more for you in MixReview_'] });
-  }
-
-  const band = [
-    ...d.newSongs.map((t) => '🆕 New song: *' + t + '*'),
-    ...d.newVersions.map((v) => '🆕 New version: *' + v.song + '* · ' + v.label),
+function bandLines(d) {
+  return [
+    ...d.newSongs.map((t) => ({ icon: '🆕', label: 'New song', song: t })),
+    ...d.newVersions.map((v) => ({ icon: '🆕', label: 'New version', song: v.song, extra: v.label })),
     ...d.commentActivity.map((a) => {
       const parts = [];
       if (a.comments) parts.push(plural(a.comments, 'comment', 'comments'));
       if (a.replies) parts.push(plural(a.replies, 'reply', 'replies'));
-      return '• *' + a.song + '*: ' + parts.join(', ');
+      return { icon: '•', song: a.song, extra: parts.join(', ') };
     }),
   ];
-  const shownBand = band.slice(0, bandMax);
-  if (band.length > shownBand.length) shownBand.push('_…and ' + (band.length - shownBand.length) + ' more_');
-  const bandCont = '🎚️ *BAND ACTIVITY* · _continued_';
-  shownBand.forEach((line, i) => out.push(i === 0
-    ? { sep: '\n\n', blocks: [DIVIDER + '\n🎚️ *BAND ACTIVITY*\n' + line], cont: bandCont }
-    : { sep: '\n', blocks: [line], lead: bandCont, cont: bandCont }));
-
-  if (appUrl) out.push({ sep: '\n\n', blocks: ['Open MixReview → ' + appUrl] });
-  return out;
 }
 
-// Fill messages in order. Whole pieces first; a piece too big for one message is split
-// between its blocks, a block too big between its lines, and a line too big (a very long
-// comment) between words. Quote lines keep their "> " when continued.
-function pack(list, budget) {
-  const bodies = [];
-  let cur = null;
-  const add = (sep, text) => {
-    const next = cur === null ? text : cur + sep + text;
-    if (len(next) > budget) return false;
-    cur = next;
-    return true;
-  };
-  const newMessage = (top) => { if (cur !== null) bodies.push(cur); cur = top || null; };
+const whoseThread = (g) => (g.mine ? 'thread you started' : g.author + "'s thread");
 
-  const fillLine = (line, sep, cont) => {
-    const prefix = line.startsWith('> ') ? '> ' : '';
-    const room = budget - len(prefix) - (cont ? len(cont) + 1 : 0);
-    const words = [];
-    for (const w of line.slice(prefix.length).split(' ')) {
-      const chars = [...w];
-      for (let i = 0; i < chars.length || i === 0; i += room) words.push(chars.slice(i, i + room).join(''));
+// ── Plain-text version (shown by mail apps that don't display HTML) ──────────
+function renderText(d, appUrl) {
+  const out = ['MixReview · ' + dayLabel(d.until), 'Everything ' + sinceText(d.since, d.until), ''];
+  if (isEmpty(d)) out.push('No new updates: no new songs, versions, comments or likes from the band.');
+  if (d.personal.length) {
+    out.push('FOR YOU', '');
+    for (const g of d.personal) {
+      out.push(g.song + ' @' + ft(g.at) + ' · ' + whoseThread(g), '  "' + oneLine(g.text) + '"');
+      for (const e of threadEvents(g)) {
+        out.push(e.icon + ' ' + e.who + ' ' + e.action);
+        if (e.quote) out.push('  "' + oneLine(e.quote) + '"');
+      }
+      out.push('');
     }
-    let open = false;   // is the message currently ending in a chunk of this line?
-    for (const w of words) {
-      if (open ? add(' ', w) : add(sep, prefix + w)) { open = true; continue; }
-      newMessage(cont);
-      add('\n', prefix + w);
-      open = true;
-    }
-  };
-
-  for (const p of list) {
-    const text = p.blocks.join('\n');
-    if (add(p.sep, text)) continue;
-    if (len((p.lead ? p.lead + '\n' : '') + text) <= budget) { newMessage(p.lead); add('\n', text); continue; }
-    p.blocks.forEach((block, bi) => {
-      const sep = bi === 0 ? p.sep : '\n';
-      if (add(sep, block)) return;
-      const top = bi === 0 ? p.lead : p.cont;
-      if (len((top ? top + '\n' : '') + block) <= budget) { newMessage(top); add('\n', block); return; }
-      block.split('\n').forEach((line, li) => {
-        const lsep = li === 0 ? sep : '\n';
-        if (add(lsep, line)) return;
-        if (len((p.cont ? p.cont + '\n' : '') + line) <= budget) { newMessage(p.cont); add('\n', line); return; }
-        fillLine(line, lsep, p.cont);
-      });
-    });
   }
-  if (cur !== null) bodies.push(cur);
-  return bodies;
+  const band = bandLines(d);
+  if (band.length) {
+    out.push('BAND ACTIVITY');
+    for (const b of band) out.push(b.icon + ' ' + (b.label ? b.label + ': ' : '') + b.song + (b.extra ? (b.label ? ' · ' : ': ') + b.extra : ''));
+    out.push('');
+  }
+  if (appUrl) out.push('Open MixReview: ' + appUrl);
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }
 
-/**
- * Returns the digest as a list of WhatsApp messages (usually one). Each starts with the
- * "🎧 MixReview · date" title, plus "· 2/3" when it's split. On a quiet day it's a single
- * short "no new updates" message.
- */
-export function formatDigest(d, { appUrl, maxChars = MAX_CHARS, maxParts = MAX_PARTS } = {}) {
-  const title = '🎧 *MixReview* · ' + dateParts(d.until, { weekday: 'short', day: 'numeric', month: 'short' });
+// ── HTML version ─────────────────────────────────────────────────────────────
+const ACCENT = '#ff4d6d';
+const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const htmlQuote = (t) => '<div style="border-left:3px solid #d5d9e0;padding:2px 0 2px 12px;margin:6px 0 12px;color:#30343c;">' + esc(oneLine(t)) + '</div>';
+const sectionTitle = (t) => '<div style="font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#7a808c;margin:4px 0 12px;">' + t + '</div>';
+
+function renderHtml(d, appUrl) {
+  const body = [];
   if (isEmpty(d)) {
-    const out = [title, '_Everything ' + sinceText(d.since, d.until) + '_', '',
-      '😴 No new updates: no new songs, versions, comments or likes from the band.'];
-    if (appUrl) out.push('', 'Open MixReview → ' + appUrl);
-    return [typographic(out.join('\n'))];
+    body.push('<p style="margin:0;">😴 No new updates: no new songs, versions, comments or likes from the band.</p>');
   }
+  if (d.personal.length) {
+    body.push(sectionTitle('👤 For you'));
+    for (const g of d.personal) {
+      const events = threadEvents(g).map((e) =>
+        '<div style="margin:2px 0;">' + e.icon + ' <b>' + esc(e.who) + '</b> ' + esc(e.action) + '</div>' + (e.quote ? htmlQuote(e.quote) : '')).join('');
+      body.push('<div style="border:1px solid #e6e8ee;border-radius:10px;padding:14px 16px;margin:0 0 14px;">'
+        + '<div style="font-weight:700;font-size:15px;">' + esc(g.song) + ' <span style="color:' + ACCENT + ';">@' + ft(g.at) + '</span></div>'
+        + '<div style="color:#7a808c;font-size:13px;">' + esc(whoseThread(g)) + '</div>'
+        + htmlQuote(g.text) + events + '</div>');
+    }
+  }
+  const band = bandLines(d);
+  if (band.length) {
+    body.push('<div style="margin-top:' + (d.personal.length ? '22' : '0') + 'px;">' + sectionTitle('🎚️ Band activity')
+      + band.map((b) => '<div style="margin:4px 0;">' + b.icon + ' ' + (b.label ? esc(b.label) + ': ' : '') + '<b>' + esc(b.song) + '</b>'
+        + (b.extra ? (b.label ? ' · ' : ': ') + esc(b.extra) : '') + '</div>').join('') + '</div>');
+  }
+  const button = appUrl
+    ? '<div style="margin:22px 0 0;"><a href="' + esc(appUrl) + '" style="display:inline-block;background:' + ACCENT + ';color:#ffffff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:8px;">Open MixReview</a></div>'
+    : '';
+  return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+    + '<body style="margin:0;padding:0;background:#f3f4f7;">'
+    + '<div style="max-width:600px;margin:0 auto;padding:24px 16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1b1e25;">'
+    + '<div style="font-size:22px;font-weight:800;">🎧 Mix<span style="color:' + ACCENT + ';">Review</span></div>'
+    + '<div style="color:#7a808c;font-size:14px;margin:2px 0 18px;">' + esc(dayLabel(d.until)) + ' · everything ' + esc(sinceText(d.since, d.until)) + '</div>'
+    + '<div style="background:#ffffff;border-radius:12px;padding:20px;">' + body.join('') + '</div>'
+    + button
+    + '<div style="color:#9aa0ab;font-size:12px;margin-top:22px;">Your MixReview digest, sent at 09:00 on days with new activity.</div>'
+    + '</div></body></html>';
+}
 
-  // Room left for the body after the title line and its "· 9/9" label.
-  const budget = maxChars - len(title + ' · 9/9') - 2;
-  // Everything in full if it fits in maxParts messages; otherwise shorten the band list,
-  // then leave out the oldest "for you" threads.
-  const attempts = [{}, { bandMax: 5 }];
-  for (let n = d.personal.length - 1; n >= 1; n--) attempts.push({ bandMax: 5, groupsMax: n });
-  let bodies = [];
-  for (const a of attempts) {
-    bodies = pack(pieces(d, appUrl, a), budget);
-    if (bodies.length <= maxParts) break;
-  }
-  // Don't spend a whole extra message on just the link.
-  if (bodies.length > 1 && appUrl && bodies[bodies.length - 1] === 'Open MixReview → ' + appUrl) bodies.pop();
-  if (bodies.length > maxParts) {                 // one enormous thread: cut it off
-    bodies = bodies.slice(0, maxParts);
-    bodies[maxParts - 1] += '\n\n_…continued in MixReview_';
-  }
-
-  const n = bodies.length;
-  return bodies.map((b, i) => typographic(
-    n === 1 ? title + '\n' + b
-            : title + ' · ' + (i + 1) + '/' + n + (i === 0 ? '\n' : '\n\n') + b));
+/** The digest as an email: { subject, html, text }. Quiet days get a short "no new updates" email. */
+export function formatEmail(d, { appUrl } = {}) {
+  const date = dayLabel(d.until);
+  const forYou = d.personal.reduce((n, g) => n + g.events.length, 0);
+  const subject = isEmpty(d) ? 'MixReview: no new updates · ' + date
+    : forYou ? 'MixReview: ' + plural(forYou, 'update', 'updates') + ' for you · ' + date
+    : 'MixReview: new band activity · ' + date;
+  return { subject, html: renderHtml(d, appUrl), text: renderText(d, appUrl) };
 }

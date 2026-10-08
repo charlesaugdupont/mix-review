@@ -4,3 +4,6 @@
 !.dev.vars.example
 .env*
 !.env.example
+
+# local digest previews (contain band comments)
+preview*.html

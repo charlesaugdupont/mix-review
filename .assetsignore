@@ -6,3 +6,6 @@ supabase
 DIGEST.md
 .wrangler
 .git
+
+# local digest previews (contain band comments)
+preview*.html

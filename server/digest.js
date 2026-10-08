@@ -1,10 +1,9 @@
-// Digest I/O: reads from Supabase (service key), sends via CallMeBot, records state.
-import { buildDigest, formatDigest } from './digest-core.js';
+// Digest I/O: reads from Supabase (service key), sends email via Brevo, records state.
+import { buildDigest, formatEmail, isEmpty } from './digest-core.js';
 
 const HOUR = 3600 * 1000;
 const FIRST_DIGEST_LOOKBACK = 24 * HOUR; // window for a subscriber's very first digest
 const RESEND_GUARD = 2 * HOUR;           // cron never sends to the same person twice within this
-const SEND_GAP_MS = 4000;                // pause between CallMeBot calls (keeps split digests in order)
 
 // ── Supabase REST helpers ──────────────────────────────────────────────────
 function sbHeaders(env) {
@@ -41,23 +40,24 @@ async function sbUpdate(env, table, filter, body) {
   if (!res.ok) throw new Error('Supabase update ' + table + ' failed: ' + res.status + ' ' + (await res.text()));
 }
 
-// ── CallMeBot ──────────────────────────────────────────────────────────────
-export async function sendWhatsApp(phone, apikey, text) {
-  const url = 'https://api.callmebot.com/whatsapp.php'
-    + '?phone=' + encodeURIComponent(phone)
-    + '&text=' + encodeURIComponent(text)
-    + '&apikey=' + encodeURIComponent(apikey);
-  const res = await fetch(url);
-  const body = (await res.text()).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  // CallMeBot echoes the phone number and message text back, then says "Message queued" on
-  // success or explains the problem (e.g. "Message not sent", invalid API key) otherwise.
-  // The error keeps the end of the reply, where the reason is.
-  if (!res.ok || /not sent/i.test(body) || !/queued|sent/i.test(body)) {
-    throw new Error('CallMeBot ' + res.status + ': …' + body.slice(-300));
-  }
+// ── Brevo (email) ──────────────────────────────────────────────────────────
+// Free plan: 300 emails/day. The sender address must be verified in Brevo (Senders).
+export async function sendEmail(env, to, { subject, html, text }) {
+  if (!env.BREVO_API_KEY) throw new Error('BREVO_API_KEY secret is not set');
+  if (!env.DIGEST_FROM_EMAIL) throw new Error('DIGEST_FROM_EMAIL is not set');
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': String(env.BREVO_API_KEY).trim(), 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      sender: { name: 'MixReview', email: env.DIGEST_FROM_EMAIL },
+      to: [to],
+      subject,
+      htmlContent: html,
+      textContent: text,
+    }),
+  });
+  if (!res.ok) throw new Error('Brevo ' + res.status + ': ' + (await res.text()).slice(0, 300));
 }
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── Main entry point ───────────────────────────────────────────────────────
 /**
@@ -73,7 +73,7 @@ export async function runDigest(env, opts = {}) {
   const now = (opts.now || new Date()).getTime();
   const nowIso = new Date(now).toISOString();
 
-  let subs = await sbSelect(env, 'digest_subscribers?select=user_id,phone,callmebot_apikey,last_digest_at&enabled=eq.true&order=user_id');
+  let subs = await sbSelect(env, 'digest_subscribers?select=user_id,email,last_digest_at&enabled=eq.true&order=user_id');
   if (opts.userId) subs = subs.filter((s) => s.user_id === opts.userId);
   if (!subs.length) return { now: nowIso, results: [] };
 
@@ -94,7 +94,6 @@ export async function runDigest(env, opts = {}) {
   const profilesById = new Map(profiles.map((u) => [u.id, u]));
 
   const results = [];
-  let sentAny = false;
   for (const sub of subs) {
     const user = profilesById.get(sub.user_id);
     const r = { user: user ? user.name : sub.user_id };
@@ -107,21 +106,22 @@ export async function runDigest(env, opts = {}) {
       }
       const since = sinceOf(sub);
       const digest = buildDigest({ user, since, until: now, songs, versions, comments, commentLikes, replyLikes, profiles });
-      const messages = formatDigest(digest, { appUrl: env.APP_URL });
       r.since = new Date(since).toISOString();
-      r.messages = messages;
+      // Nothing new for this person: no email. Their window still moves forward.
+      if (isEmpty(digest)) {
+        r.status = 'nothing new';
+        if (!opts.dryRun) await sbUpdate(env, 'digest_subscribers', 'user_id=eq.' + sub.user_id, { last_digest_at: nowIso, last_error: null });
+        continue;
+      }
+      const email = formatEmail(digest, { appUrl: env.APP_URL });
+      r.subject = email.subject;
+      r.text = email.text;
+      r.html = email.html;
 
       if (opts.dryRun) { r.status = 'preview'; continue; }
-      for (let i = 0; i < messages.length; i++) {
-        if (sentAny) await sleep(SEND_GAP_MS);
-        try {
-          await sendWhatsApp(sub.phone, sub.callmebot_apikey, messages[i]);
-        } catch (e) {
-          throw new Error((messages.length > 1 ? 'message ' + (i + 1) + '/' + messages.length + ': ' : '') + e.message);
-        }
-        sentAny = true;
-      }
-      r.status = messages.length > 1 ? 'sent (' + messages.length + ' messages)' : 'sent';
+      if (!sub.email) throw new Error('no email address in digest_subscribers');
+      await sendEmail(env, { email: sub.email, name: user.name }, email);
+      r.status = 'sent';
       await sbUpdate(env, 'digest_subscribers', 'user_id=eq.' + sub.user_id, { last_digest_at: nowIso, last_error: null });
     } catch (e) {
       r.status = 'error';
